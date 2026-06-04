@@ -57,7 +57,8 @@ npm install                # 安装依赖
 npm run dev               # 启动Vite开发服务器（端口3000）
 ```
 - Vite运行在 `http://localhost:3000`
-- `/api-proxy` 代理到 `http://api.gitcc.com`
+- `/api-proxy` 代理到 `https://apihub.agnes-ai.com`（默认 AGNES AI 提供商）
+- 支持多个免费 API 提供商配置
 - 启用热模块重载
 
 ### 生产构建
@@ -90,19 +91,28 @@ docker build -t ai-manga-studio .
 docker run -d -p 3005:80 --name ai-manga-studio-app ai-manga-studio
 ```
 - 通过 `http://localhost:3005` 访问
-- Nginx服务前端并代理 `/api-proxy` 到GitCC API
+- Nginx服务前端并代理 `/api-proxy` 到默认 API 提供商（AGNES AI）
+- 支持通过环境配置切换 API 提供商
 - 无需外部后端
 
 ## 配置
 
 ### 环境变量
-- `ANTSK_API_KEY` - 模型提供商API密钥（来自 `.env`）
-- 通过Vite的 `loadEnv()` 在开发和构建时加载
+- API 密钥通过浏览器本地存储管理，每个 API 提供商独立配置
+- 开发和构建时可通过 `.env` 文件设置默认提供商（可选）
 
 ### API代理
-- **开发/预览/桌面** - `/api-proxy` → `http://api.gitcc.com`
-- **Docker** - Nginx代理 `/api-proxy` 到同一目标
-- **目的** - 解决CORS问题并集中管理API配置
+- **开发/预览/桌面** - `/api-proxy` → 所选 API 提供商（AGNES AI、OpenAI 等）
+- **Docker** - Nginx 代理 `/api-proxy` 到所选提供商
+- **目的** - 解决 CORS 问题，支持多个免费 API 提供商切换
+
+### API 提供商
+- **AGNES AI** (默认) - `https://apihub.agnes-ai.com/v1`
+- **OpenAI** - `https://api.openai.com/v1`
+- **Anthropic** - `https://api.anthropic.com`
+- **DeepSeek** - `https://api.deepseek.com`
+- **Ollama (本地)** - `http://localhost:11434/v1`
+- **用户可自定义** - 支持添加其他 API 提供商
 
 ### TypeScript配置
 - **目标** - ES2022
@@ -165,9 +175,9 @@ export default ComponentName;
 
 ### 关键外部库
 - **UI** - lucide-react（图标）、Tailwind（样式）
-- **AI集成** - GitCC API的自定义适配器
-- **数据** - 浏览器IndexedDB API
-- **导出** - jszip用于项目打包
+- **AI集成** - 多个免费 API 提供商的适配器（AGNES、OpenAI、Anthropic 等）
+- **数据** - 浏览器 IndexedDB API
+- **导出** - jszip 用于项目打包
 
 ## 类型安全
 
