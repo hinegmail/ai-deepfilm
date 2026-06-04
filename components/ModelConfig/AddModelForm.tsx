@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { Check, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { Check, X, ChevronDown } from 'lucide-react';
 import { 
   ModelType, 
   ModelDefinition,
@@ -18,13 +18,7 @@ import {
   DEFAULT_VIDEO_PARAMS_DOUBAO,
 } from '../../types/model';
 import { getProviders } from '../../services/modelRegistry';
-import { DEPEI_PROVIDER_BASE_URL } from '../../types/model';
 import { useAlert } from '../GlobalAlert';
-
-/** 只允许使用 GitCC API 提供商（http://api.gitcc.com） */
-const normalizeBaseUrl = (url: string) => url.trim().replace(/\/+$/, '').toLowerCase();
-const getAllowedProviders = () =>
-  getProviders().filter((p) => normalizeBaseUrl(p.baseUrl) === normalizeBaseUrl(DEPEI_PROVIDER_BASE_URL));
 
 interface AddModelFormProps {
   type: ModelType;
@@ -33,8 +27,8 @@ interface AddModelFormProps {
 }
 
 const AddModelForm: React.FC<AddModelFormProps> = ({ type, onSave, onCancel }) => {
-  const allowedProviders = getAllowedProviders();
-  const defaultProvider = allowedProviders[0];
+  const allProviders = getProviders();
+  const defaultProvider = allProviders.find(p => p.isDefault) || allProviders[0];
   const { showAlert } = useAlert();
   
   const [name, setName] = useState('');
@@ -42,13 +36,8 @@ const AddModelForm: React.FC<AddModelFormProps> = ({ type, onSave, onCancel }) =
   const [description, setDescription] = useState('');
   const [endpoint, setEndpoint] = useState('');
   const [apiKey, setApiKey] = useState('');
+  const [selectedProviderId, setSelectedProviderId] = useState(defaultProvider?.id || 'gitcc');
   const [videoMode, setVideoMode] = useState<'sync' | 'async' | 'doubao'>('sync');
-  
-  // 固定使用 GitCC API 提供商，不允许添加其他
-  const selectedProviderId = defaultProvider?.id || 'antsk';
-  
-  // 展开高级选项
-  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const handleSave = () => {
     if (!name.trim() || !apiModel.trim()) {
@@ -94,6 +83,25 @@ const AddModelForm: React.FC<AddModelFormProps> = ({ type, onSave, onCancel }) =
   return (
     <div className="bg-white/[0.045] border border-white/10 rounded-2xl p-4 space-y-4">
       <h4 className="text-sm font-bold text-white">添加自定义模型</h4>
+      
+      {/* 提供商选择 */}
+      <div>
+        <label className="text-[10px] text-zinc-500 block mb-1">API 提供商 *</label>
+        <select
+          value={selectedProviderId}
+          onChange={(e) => setSelectedProviderId(e.target.value)}
+          className="w-full bg-white/[0.06] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:border-cyan-300/40 focus:outline-none focus:ring-2 focus:ring-cyan-300/10"
+        >
+          {allProviders.map(provider => (
+            <option key={provider.id} value={provider.id}>
+              {provider.name} {provider.isBuiltIn ? '(内置)' : '(自定义)'}
+            </option>
+          ))}
+        </select>
+        <p className="text-[9px] text-zinc-600 mt-1">
+          {allProviders.find(p => p.id === selectedProviderId)?.baseUrl}
+        </p>
+      </div>
       
       {/* 基础信息 */}
       <div className="grid grid-cols-2 gap-4">

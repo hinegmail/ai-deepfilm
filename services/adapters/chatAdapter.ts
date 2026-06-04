@@ -150,15 +150,16 @@ export const callChatApi = async (
 export const verifyApiKey = async (apiKey: string, baseUrl?: string): Promise<{ success: boolean; message: string }> => {
   try {
     const url = baseUrl || 'http://api.gitcc.com';
+    const endpoint = '/v1/chat/completions';
     
-    const response = await fetch(`${url}/v1/chat/completions`, {
+    const response = await fetch(`${url}${endpoint}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'gpt-41',
+        model: 'gpt-4o',
         messages: [{ role: 'user', content: '仅返回1' }],
         temperature: 0.1,
         max_tokens: 5,

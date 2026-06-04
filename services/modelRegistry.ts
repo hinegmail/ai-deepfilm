@@ -57,6 +57,31 @@ export const loadRegistry = (): ModelRegistryState => {
         }
       });
 
+      // 迁移旧的 antsk providerId 到 gitcc
+      parsed.providers = parsed.providers.map(p => {
+        if (p.id === 'antsk') {
+          return { ...p, id: 'gitcc', name: 'GitCC API' };
+        }
+        return p;
+      });
+
+      // 迁移模型中的旧 providerId
+      parsed.models = parsed.models.map(m => {
+        if (m.providerId === 'antsk') {
+          return { ...m, providerId: 'gitcc' };
+        }
+        return m;
+      });
+
+      // 迁移激活模型中的旧 providerId
+      Object.keys(parsed.activeModels).forEach(key => {
+        const modelId = (parsed.activeModels as any)[key];
+        if (typeof modelId === 'string' && !modelId.includes(':')) {
+          // 旧的模型ID，添加 gitcc 前缀
+          (parsed.activeModels as any)[key] = `gitcc:${modelId}`;
+        }
+      });
+
       // 按 baseUrl 去重提供商（保留先出现的项，通常为内置）
       const seenBaseUrls = new Set<string>();
       parsed.providers = parsed.providers.filter(p => {
@@ -101,7 +126,7 @@ export const loadRegistry = (): ModelRegistryState => {
         deprecatedVideoModelIds.includes(parsed.activeModels.video) ||
         parsed.activeModels.video?.startsWith('veo_3_1')
       ) {
-        parsed.activeModels.video = 'veo';
+        parsed.activeModels.video = 'sora-2';
       }
       
       // 同步全局 API Key
@@ -458,17 +483,17 @@ function isLocalOrigin(): boolean {
 
 /**
  * 获取模型对应的 API 基础 URL
- * 供应商使用 GitCC（api.gitcc.com），为了避免 CORS 和便于切换，
- * - 本地开发时：通过 /api-proxy 代理到 GitCC
- * - 线上环境：同样通过 /api-proxy，由后端 Nginx 代理到 GitCC
+ * - 本地开发时走代理：/api-proxy 到提供商
+ * - 线上环境：直连或走后端代理
  */
 export const getApiBaseUrlForModel = (modelId: string): string => {
   const model = getModelById(modelId);
   const provider = model ? getProviderById(model.providerId) : BUILTIN_PROVIDERS[0];
   let baseUrl = (provider?.baseUrl || BUILTIN_PROVIDERS[0].baseUrl).replace(/\/+$/, '');
 
-  // 统一通过 /api-proxy 代理到 GitCC，避免浏览器直接跨域访问 api.gitcc.com
-  if (baseUrl === 'http://api.gitcc.com' || baseUrl === 'https://api.gitcc.com') {
+  // 本地开发时统一通过 /api-proxy 代理，避免 CORS 问题
+  if (isLocalOrigin() && !baseUrl.startsWith('http://localhost')) {
+    // 非本地的 API，通过代理访问
     return API_PROXY_PATH;
   }
 

@@ -4,7 +4,7 @@
  */
 
 import React, { useRef, useState, useEffect } from 'react';
-import { X, Settings, MessageSquare, Image, Video, Key, ExternalLink, Gift, Sparkles } from 'lucide-react';
+import { X, Settings, MessageSquare, Image, Video, Key, ExternalLink, Gift, Sparkles, Zap, Activity } from 'lucide-react';
 import { ModelType, ModelDefinition } from '../../types/model';
 import {
   getRegistryState,
@@ -20,13 +20,15 @@ import {
 import { verifyApiKey } from '../../services/modelService';
 import ModelList from './ModelList';
 import GlobalSettings from './GlobalSettings';
+import ProviderManager from './ProviderManager';
+import ProviderHealthCheck from './ProviderHealthCheck';
 
 interface ModelConfigModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-type TabType = 'global' | 'chat' | 'image' | 'video';
+type TabType = 'global' | 'providers' | 'health' | 'chat' | 'image' | 'video';
 
 const ModelConfigModal: React.FC<ModelConfigModalProps> = ({ isOpen, onClose }) => {
   const [activeTab, setActiveTab] = useState<TabType>('global');
@@ -40,6 +42,8 @@ const ModelConfigModal: React.FC<ModelConfigModalProps> = ({ isOpen, onClose }) 
 
   const tabs: { id: TabType; label: string; icon: React.ReactNode }[] = [
     { id: 'global', label: '全局配置', icon: <Key className="w-4 h-4" /> },
+    { id: 'providers', label: 'API 提供商', icon: <Zap className="w-4 h-4" /> },
+    { id: 'health', label: '健康检查', icon: <Activity className="w-4 h-4" /> },
     { id: 'chat', label: '对话模型', icon: <MessageSquare className="w-4 h-4" /> },
     { id: 'image', label: '图片模型', icon: <Image className="w-4 h-4" /> },
     { id: 'video', label: '视频模型', icon: <Video className="w-4 h-4" /> },
@@ -115,6 +119,10 @@ const ModelConfigModal: React.FC<ModelConfigModalProps> = ({ isOpen, onClose }) 
         <div className="flex-1 overflow-y-auto p-6" key={refreshKey}>
           {activeTab === 'global' ? (
             <GlobalSettings onRefresh={refresh} />
+          ) : activeTab === 'providers' ? (
+            <ProviderManager onRefresh={refresh} />
+          ) : activeTab === 'health' ? (
+            <ProviderHealthCheck />
           ) : (
             <ModelList 
               type={activeTab as ModelType} 

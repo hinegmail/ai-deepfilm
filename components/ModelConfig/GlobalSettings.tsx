@@ -1,11 +1,11 @@
 /**
  * 全局配置组件
- * 包含 API Key 配置和折扣广告
+ * 包含 API Key 配置和提供商说明
  */
 
 import React, { useState, useEffect } from 'react';
-import { Key, Loader2, CheckCircle, AlertCircle, ExternalLink, Gift, Sparkles } from 'lucide-react';
-import { getGlobalApiKey } from '../../services/modelRegistry';
+import { Key, Loader2, CheckCircle, AlertCircle, HelpCircle } from 'lucide-react';
+import { getGlobalApiKey, getProviders } from '../../services/modelRegistry';
 import { verifyApiKey } from '../../services/modelService';
 import { setGlobalApiKey } from '../../services/geminiService';
 
@@ -67,34 +67,32 @@ const GlobalSettings: React.FC<GlobalSettingsProps> = ({ onRefresh }) => {
     onRefresh();
   };
 
+  const providers = getProviders().filter(p => p.isBuiltIn);
+
   return (
     <div className="space-y-6">
-      {/* 折扣广告卡片 */}
-      <div className="bg-gradient-to-r from-cyan-300/10 via-sky-400/10 to-fuchsia-400/10 border border-cyan-200/20 rounded-2xl p-5">
-        <div className="flex items-start gap-4">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-300 to-sky-400 flex items-center justify-center flex-shrink-0">
-            <Gift className="w-6 h-6 text-white" />
-          </div>
-          <div className="flex-1">
-            <h3 className="text-base font-bold text-white mb-1 flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-yellow-400" />
-              推荐使用 GitCC API
-            </h3>
+      {/* 提供商说明卡片 */}
+      <div className="bg-white/[0.045] border border-white/10 rounded-2xl p-5 space-y-4">
+        <div className="flex items-start gap-3">
+          <HelpCircle className="w-5 h-5 text-cyan-300 flex-shrink-0 mt-0.5" />
+          <div>
+            <h3 className="text-sm font-bold text-white mb-2">支持的 API 提供商</h3>
             <p className="text-xs text-zinc-400 mb-3 leading-relaxed">
-              支持 GPT-5.1、GPT-5.2、Claude Sonnet 4.5、Gemini-3、Veo 3.1、Sora-2 等多种模型。
-              稳定快速，价格优惠。本开源项目由 GitCC API 提供支持。
+              本应用支持多家 OpenAI 兼容格式的模型服务提供商。选择适合你的服务商，配置对应的 API Key。
             </p>
-            <div className="flex items-center gap-3">
-              <a 
-                href="http://api.gitcc.com" 
-                target="_blank" 
-                rel="noreferrer"
-                className="px-4 py-2 bg-cyan-300 text-slate-950 text-xs font-bold rounded-xl hover:bg-cyan-200 transition-colors inline-flex items-center gap-1.5"
-              >
-                立即购买
-                <ExternalLink className="w-3 h-3" />
-              </a>
-              {/* 使用教程已隐藏 */}
+            
+            <div className="space-y-2">
+              {providers.map(provider => (
+                <div key={provider.id} className="bg-white/[0.03] rounded-lg p-3 border border-white/5">
+                  <div className="flex items-start justify-between mb-1">
+                    <h4 className="text-xs font-semibold text-white">{provider.name}</h4>
+                    {provider.isDefault && (
+                      <span className="text-[10px] font-bold text-cyan-300 bg-cyan-300/10 px-2 py-0.5 rounded">默认</span>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-zinc-500">{provider.baseUrl}</p>
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -170,15 +168,27 @@ const GlobalSettings: React.FC<GlobalSettingsProps> = ({ onRefresh }) => {
         </div>
       </div>
 
-      {/* 提示 */}
+      {/* 配置指南 */}
       <div className="p-4 bg-white/[0.045] rounded-2xl border border-white/10">
-        <h4 className="text-xs font-bold text-zinc-400 mb-2">配置说明</h4>
-        <ul className="text-[10px] text-zinc-600 space-y-1 list-disc list-inside">
-          <li>全局 API Key 用于所有 GitCC API 内置模型的调用</li>
-          <li>你可以在各模型类别中调整模型参数（温度、Token 等）</li>
-          <li>支持添加自定义模型，使用其他 API 服务</li>
-          <li>所有配置仅保存在本地浏览器，不会上传到服务器</li>
-        </ul>
+        <h4 className="text-xs font-bold text-zinc-400 mb-3">配置指南</h4>
+        <div className="space-y-3">
+          <div>
+            <p className="text-[10px] font-semibold text-white mb-1">选择提供商</p>
+            <p className="text-[10px] text-zinc-600">在"模型配置"中选择你要使用的 API 提供商和具体模型</p>
+          </div>
+          <div>
+            <p className="text-[10px] font-semibold text-white mb-1">配置 API Key</p>
+            <p className="text-[10px] text-zinc-600">全局 API Key 用于所有模型；也可为单个提供商配置独立 Key</p>
+          </div>
+          <div>
+            <p className="text-[10px] font-semibold text-white mb-1">调整模型参数</p>
+            <p className="text-[10px] text-zinc-600">在各模型类别中调整温度、Token 上限等参数</p>
+          </div>
+          <div>
+            <p className="text-[10px] font-semibold text-white mb-1">隐私保护</p>
+            <p className="text-[10px] text-zinc-600">所有配置仅保存在本地浏览器，不会上传到任何服务器</p>
+          </div>
+        </div>
       </div>
     </div>
   );

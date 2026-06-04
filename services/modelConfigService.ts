@@ -13,8 +13,8 @@ const STORAGE_KEY = 'ai_manga_studio_model_config';
 const LEGACY_STORAGE_KEY = ['big' + 'banana', 'model', 'config'].join('_');
 
 const DEFAULT_PROVIDER: ModelProvider = {
-  id: 'antsk',
-  name: 'GitCC API (api.gitcc.com)',
+  id: 'gitcc',
+  name: 'GitCC API',
   baseUrl: 'http://api.gitcc.com',
   isDefault: true,
   isBuiltIn: true
@@ -22,17 +22,17 @@ const DEFAULT_PROVIDER: ModelProvider = {
 
 const DEFAULT_CONFIG: ModelConfig = {
   chatModel: {
-    providerId: 'antsk',
+    providerId: 'gitcc',
     modelName: 'gpt-5.1',
     endpoint: '/v1/chat/completions'
   },
   imageModel: {
-    providerId: 'antsk',
+    providerId: 'gitcc',
     modelName: 'gemini-3-pro-image-preview',
     endpoint: '/v1beta/models/gemini-3-pro-image-preview:generateContent'
   },
   videoModel: {
-    providerId: 'antsk',
+    providerId: 'gitcc',
     type: 'veo',
     modelName: 'veo',
     endpoint: '/v1/chat/completions'
@@ -58,14 +58,21 @@ export const loadModelConfig = (): ModelManagerState => {
     if (stored) {
       const parsed = JSON.parse(stored) as ModelManagerState;
       // 確保內建 GitCC 提供商不被舊快取改寫 baseUrl。
-      const hasDefaultProvider = parsed.providers.some(p => p.id === 'antsk');
+      const hasDefaultProvider = parsed.providers.some(p => p.id === 'gitcc');
       if (!hasDefaultProvider) {
         parsed.providers.unshift(DEFAULT_PROVIDER);
       } else {
         parsed.providers = parsed.providers.map(p =>
-          p.id === 'antsk' ? { ...p, baseUrl: DEFAULT_PROVIDER.baseUrl } : p
+          p.id === 'gitcc' ? { ...p, baseUrl: DEFAULT_PROVIDER.baseUrl } : p
         );
       }
+      // 迁移旧的 antsk providerId 到 gitcc
+      parsed.providers = parsed.providers.map(p =>
+        p.id === 'antsk' ? { ...p, id: 'gitcc', name: 'GitCC API' } : p
+      );
+      parsed.currentConfig.chatModel.providerId = parsed.currentConfig.chatModel.providerId === 'antsk' ? 'gitcc' : parsed.currentConfig.chatModel.providerId;
+      parsed.currentConfig.imageModel.providerId = parsed.currentConfig.imageModel.providerId === 'antsk' ? 'gitcc' : parsed.currentConfig.imageModel.providerId;
+      parsed.currentConfig.videoModel.providerId = parsed.currentConfig.videoModel.providerId === 'antsk' ? 'gitcc' : parsed.currentConfig.videoModel.providerId;
       // 舊版 Veo 模型名需要遷移為現行統一 ID。
       const videoModelName = parsed.currentConfig?.videoModel?.modelName || '';
       if (videoModelName === 'veo-3.1' || videoModelName.startsWith('veo_3_1')) {
@@ -149,13 +156,13 @@ export const deleteProvider = (id: string): boolean => {
   state.providers = state.providers.filter(p => p.id !== id);
   
   if (state.currentConfig.chatModel.providerId === id) {
-    state.currentConfig.chatModel.providerId = 'antsk';
+    state.currentConfig.chatModel.providerId = 'gitcc';
   }
   if (state.currentConfig.imageModel.providerId === id) {
-    state.currentConfig.imageModel.providerId = 'antsk';
+    state.currentConfig.imageModel.providerId = 'gitcc';
   }
   if (state.currentConfig.videoModel.providerId === id) {
-    state.currentConfig.videoModel.providerId = 'antsk';
+    state.currentConfig.videoModel.providerId = 'gitcc';
   }
   
   saveModelConfig(state);
@@ -228,7 +235,7 @@ export const getApiBaseUrl = (type: 'chat' | 'image' | 'video' = 'chat'): string
       providerId = config.videoModel.providerId;
       break;
     default:
-      providerId = 'antsk';
+      providerId = 'gitcc';
   }
   
   const provider = getProviderById(providerId) || getDefaultProvider();
