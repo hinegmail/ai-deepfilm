@@ -57,6 +57,12 @@ export const loadRegistry = (): ModelRegistryState => {
         }
       });
 
+      // 彻底移除任何 GitCC 相关的提供商
+      parsed.providers = parsed.providers.filter(p => p.id !== 'gitcc' && p.id !== 'antsk');
+
+      // 只保留存在于 BUILTIN_PROVIDERS 中的提供商（这是最后的防线）
+      parsed.providers = parsed.providers.filter(p => BUILTIN_PROVIDERS.some(bp => bp.id === p.id));
+
       // 按 baseUrl 去重提供商（保留先出现的项，通常为内置）
       const seenBaseUrls = new Set<string>();
       parsed.providers = parsed.providers.filter(p => {
@@ -91,17 +97,26 @@ export const loadRegistry = (): ModelRegistryState => {
         return { ...m, apiModel: m.id };
       });
 
-      // 清理旧的 Veo 内置模型
+      // 清理旧的 Veo 内置模型和任何 GitCC 模型
       parsed.models = parsed.models.filter(
-        m => !(m.type === 'video' && deprecatedVideoModelIds.includes(m.id))
+        m => !(m.type === 'video' && deprecatedVideoModelIds.includes(m.id)) && m.providerId !== 'gitcc'
       );
 
-      // 迁移激活视频模型
+      // 迁移激活视频模型和清理 GitCC 引用
       if (
         deprecatedVideoModelIds.includes(parsed.activeModels.video) ||
-        parsed.activeModels.video?.startsWith('veo_3_1')
+        parsed.activeModels.video?.startsWith('veo_3_1') ||
+        parsed.activeModels.video?.startsWith('gitcc:')
       ) {
-        parsed.activeModels.video = 'sora-2';
+        parsed.activeModels.video = 'agnes:agnes-video-v2.0';
+      }
+      
+      // 清理任何 GitCC 模型引用
+      if (parsed.activeModels.chat?.startsWith('gitcc:')) {
+        parsed.activeModels.chat = 'agnes:agnes-2.0-flash';
+      }
+      if (parsed.activeModels.image?.startsWith('gitcc:')) {
+        parsed.activeModels.image = 'agnes:agnes-image-2.1-flash';
       }
       
       // 同步全局 API Key
@@ -158,7 +173,9 @@ export const resetRegistry = (): void => {
  * 获取所有提供商
  */
 export const getProviders = (): ModelProvider[] => {
-  return loadRegistry().providers;
+  const providers = loadRegistry().providers;
+  // 最后防线：过滤掉任何 GitCC 或 antsk 提供商
+  return providers.filter(p => p.id !== 'gitcc' && p.id !== 'antsk');
 };
 
 /**

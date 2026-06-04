@@ -94,7 +94,9 @@ export const getModelManagerState = (): ModelManagerState => {
 };
 
 export const getProviders = (): ModelProvider[] => {
-  return loadModelConfig().providers;
+  const providers = loadModelConfig().providers;
+  // 过滤掉任何 GitCC 或 antsk 提供商
+  return providers.filter(p => p.id !== 'gitcc' && p.id !== 'antsk');
 };
 
 export const getProviderById = (id: string): ModelProvider | undefined => {
