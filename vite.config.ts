@@ -10,7 +10,7 @@ export default defineConfig(({ mode }) => {
         host: '0.0.0.0',
         proxy: {
           '/api-proxy': {
-            target: 'http://api.gitcc.com',
+            target: 'https://apihub.agnes-ai.com',
             changeOrigin: true,
             rewrite: (path) => path.replace(/^\/api-proxy/, ''),
           },
@@ -21,7 +21,7 @@ export default defineConfig(({ mode }) => {
         host: '0.0.0.0',
         proxy: {
           '/api-proxy': {
-            target: 'http://api.gitcc.com',
+            target: 'https://apihub.agnes-ai.com',
             changeOrigin: true,
             rewrite: (path) => path.replace(/^\/api-proxy/, ''),
           },

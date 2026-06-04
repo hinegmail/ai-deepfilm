@@ -47,38 +47,13 @@ export const loadRegistry = (): ModelRegistryState => {
         'veo_3_1_i2v_s_fast_fl_portrait',
       ];
       
-      // 合并内置提供商，并强制覆盖内置提供商的 baseUrl/name（避免 localStorage 里残留旧地址如 api.antsk.cn）
+      // 合并内置提供商，并强制覆盖内置提供商的 baseUrl/name
       BUILTIN_PROVIDERS.forEach(bp => {
         const idx = parsed.providers.findIndex(p => p.id === bp.id);
         if (idx === -1) {
           parsed.providers.unshift(bp);
         } else {
           parsed.providers[idx] = { ...parsed.providers[idx], baseUrl: bp.baseUrl, name: bp.name };
-        }
-      });
-
-      // 迁移旧的 antsk providerId 到 gitcc
-      parsed.providers = parsed.providers.map(p => {
-        if (p.id === 'antsk') {
-          return { ...p, id: 'gitcc', name: 'GitCC API' };
-        }
-        return p;
-      });
-
-      // 迁移模型中的旧 providerId
-      parsed.models = parsed.models.map(m => {
-        if (m.providerId === 'antsk') {
-          return { ...m, providerId: 'gitcc' };
-        }
-        return m;
-      });
-
-      // 迁移激活模型中的旧 providerId
-      Object.keys(parsed.activeModels).forEach(key => {
-        const modelId = (parsed.activeModels as any)[key];
-        if (typeof modelId === 'string' && !modelId.includes(':')) {
-          // 旧的模型ID，添加 gitcc 前缀
-          (parsed.activeModels as any)[key] = `gitcc:${modelId}`;
         }
       });
 

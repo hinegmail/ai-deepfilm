@@ -13,29 +13,29 @@ const STORAGE_KEY = 'ai_manga_studio_model_config';
 const LEGACY_STORAGE_KEY = ['big' + 'banana', 'model', 'config'].join('_');
 
 const DEFAULT_PROVIDER: ModelProvider = {
-  id: 'gitcc',
-  name: 'GitCC API',
-  baseUrl: 'http://api.gitcc.com',
+  id: 'agnes',
+  name: 'AGNES AI',
+  baseUrl: 'https://apihub.agnes-ai.com/v1',
   isDefault: true,
   isBuiltIn: true
 };
 
 const DEFAULT_CONFIG: ModelConfig = {
   chatModel: {
-    providerId: 'gitcc',
-    modelName: 'gpt-5.1',
-    endpoint: '/v1/chat/completions'
+    providerId: 'agnes',
+    modelName: 'agnes-2.0-flash',
+    endpoint: '/chat/completions'
   },
   imageModel: {
-    providerId: 'gitcc',
-    modelName: 'gemini-3-pro-image-preview',
-    endpoint: '/v1beta/models/gemini-3-pro-image-preview:generateContent'
+    providerId: 'agnes',
+    modelName: 'agnes-image-2.1-flash',
+    endpoint: '/images/generations'
   },
   videoModel: {
-    providerId: 'gitcc',
-    type: 'veo',
-    modelName: 'veo',
-    endpoint: '/v1/chat/completions'
+    providerId: 'agnes',
+    type: 'sora',
+    modelName: 'agnes-video-v2.0',
+    endpoint: '/videos'
   }
 };
 
@@ -57,28 +57,14 @@ export const loadModelConfig = (): ModelManagerState => {
     const stored = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_STORAGE_KEY);
     if (stored) {
       const parsed = JSON.parse(stored) as ModelManagerState;
-      // 確保內建 GitCC 提供商不被舊快取改寫 baseUrl。
-      const hasDefaultProvider = parsed.providers.some(p => p.id === 'gitcc');
+      // 确保内置 AGNES 提供商存在
+      const hasDefaultProvider = parsed.providers.some(p => p.id === 'agnes');
       if (!hasDefaultProvider) {
         parsed.providers.unshift(DEFAULT_PROVIDER);
       } else {
         parsed.providers = parsed.providers.map(p =>
-          p.id === 'gitcc' ? { ...p, baseUrl: DEFAULT_PROVIDER.baseUrl } : p
+          p.id === 'agnes' ? { ...p, baseUrl: DEFAULT_PROVIDER.baseUrl } : p
         );
-      }
-      // 迁移旧的 antsk providerId 到 gitcc
-      parsed.providers = parsed.providers.map(p =>
-        p.id === 'antsk' ? { ...p, id: 'gitcc', name: 'GitCC API' } : p
-      );
-      parsed.currentConfig.chatModel.providerId = parsed.currentConfig.chatModel.providerId === 'antsk' ? 'gitcc' : parsed.currentConfig.chatModel.providerId;
-      parsed.currentConfig.imageModel.providerId = parsed.currentConfig.imageModel.providerId === 'antsk' ? 'gitcc' : parsed.currentConfig.imageModel.providerId;
-      parsed.currentConfig.videoModel.providerId = parsed.currentConfig.videoModel.providerId === 'antsk' ? 'gitcc' : parsed.currentConfig.videoModel.providerId;
-      // 舊版 Veo 模型名需要遷移為現行統一 ID。
-      const videoModelName = parsed.currentConfig?.videoModel?.modelName || '';
-      if (videoModelName === 'veo-3.1' || videoModelName.startsWith('veo_3_1')) {
-        parsed.currentConfig.videoModel.modelName = 'veo';
-        parsed.currentConfig.videoModel.type = 'veo';
-        parsed.currentConfig.videoModel.endpoint = '/v1/chat/completions';
       }
       runtimeState = parsed;
       saveModelConfig(parsed);
@@ -156,13 +142,14 @@ export const deleteProvider = (id: string): boolean => {
   state.providers = state.providers.filter(p => p.id !== id);
   
   if (state.currentConfig.chatModel.providerId === id) {
-    state.currentConfig.chatModel.providerId = 'gitcc';
+  if (state.currentConfig.chatModel.providerId === id) {
+    state.currentConfig.chatModel.providerId = 'agnes';
   }
   if (state.currentConfig.imageModel.providerId === id) {
-    state.currentConfig.imageModel.providerId = 'gitcc';
+    state.currentConfig.imageModel.providerId = 'agnes';
   }
   if (state.currentConfig.videoModel.providerId === id) {
-    state.currentConfig.videoModel.providerId = 'gitcc';
+    state.currentConfig.videoModel.providerId = 'agnes';
   }
   
   saveModelConfig(state);
@@ -235,7 +222,7 @@ export const getApiBaseUrl = (type: 'chat' | 'image' | 'video' = 'chat'): string
       providerId = config.videoModel.providerId;
       break;
     default:
-      providerId = 'gitcc';
+      providerId = 'agnes';
   }
   
   const provider = getProviderById(providerId) || getDefaultProvider();

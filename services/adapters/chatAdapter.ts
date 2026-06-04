@@ -149,8 +149,8 @@ export const callChatApi = async (
 
 export const verifyApiKey = async (apiKey: string, baseUrl?: string): Promise<{ success: boolean; message: string }> => {
   try {
-    const url = baseUrl || 'http://api.gitcc.com';
-    const endpoint = '/v1/chat/completions';
+    const url = baseUrl || 'https://apihub.agnes-ai.com/v1';
+    const endpoint = '/chat/completions';
     
     const response = await fetch(`${url}${endpoint}`, {
       method: 'POST',

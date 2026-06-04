@@ -218,7 +218,6 @@ function getPreferredTestModel(
     'deepseek': ['deepseek:deepseek-chat'],
     'agnes': ['agnes:agnes-2.0-flash', 'agnes:agnes-image-2.1-flash', 'agnes:agnes-video-v2.0'],
     'ollama': ['ollama:llama2', 'ollama:mistral'],
-    'gitcc': ['gpt-5.1', 'gpt-5.2'],
   };
 
   const preferredIds = priorities[providerId];
