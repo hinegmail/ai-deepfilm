@@ -82,6 +82,7 @@ const getDefaultApiBase = (): string => {
   if (typeof window !== 'undefined') {
     const o = window.location.origin;
     const isLocal = o.startsWith('http://localhost') || o.startsWith('http://127.0.0.1') || o.startsWith('https://localhost') || o.startsWith('https://127.0.0.1');
+    // 本地开发通过 /api-proxy 代理，代理会自动添加 /v1
     if (isLocal && DEFAULT_API_BASE === 'https://apihub.agnes-ai.com/v1') return '/api-proxy';
   }
   return DEFAULT_API_BASE;
@@ -174,11 +175,14 @@ const retryOperation = async <T>(operation: () => Promise<T>, maxRetries: number
       // 判断是否是可重试的错误
       const isRetryableError = 
         e.status === 429 || 
+        e.status === 403 || // 403 Forbidden 可能是临时限流，值得重试
         e.status === 502 ||
         e.status === 503 ||
         e.code === 429 || 
         e.status === 504 ||
         e.message?.includes('429') || 
+        e.message?.includes('403') ||
+        e.message?.includes('Forbidden') ||
         e.message?.includes('502') ||
         e.message?.includes('503') ||
         e.message?.includes('quota') || 
@@ -935,12 +939,13 @@ export const generateImage = async (
 ): Promise<string> => {
   const startTime = Date.now();
   
-  // 从 modelRegistry 获取当前激活的图片模型（GitCC 使用 OpenAI 端点 /v1/chat/completions + model 名称）
+  // 从 modelRegistry 获取当前激活的图片模型
   const activeImageModel = getActiveModel('image');
   const imageModelId = activeImageModel?.apiModel || activeImageModel?.id || 'gemini-3-pro-image-preview';
   const apiKey = checkApiKey('image', activeImageModel?.id);
   const apiBase = getApiBase('image', activeImageModel?.id);
-  const requestEndpoint = '/v1/chat/completions';
+  // 使用模型定义中的端点，如果没有则使用默认的图片生成端点
+  const requestEndpoint = activeImageModel?.endpoint || '/images/generations';
 
   try {
     // If we have reference images, instruct the model to use them for consistency
@@ -1005,122 +1010,120 @@ export const generateImage = async (
       }
     }
 
-  // GitCC 图片模型走 OpenAI 端点：model + messages，不再使用 contents/generationConfig
+  // 构建请求体 - 使用 AGNES API 格式，而不是 OpenAI 聊天格式
+  const sizeMap: Record<AspectRatio, string> = {
+    '16:9': '1024x576',
+    '9:16': '576x1024',
+    '1:1': '512x512'
+  };
+  const size = sizeMap[aspectRatio] || '1024x576';
+
+  // 构建请求体
   const requestBody: any = {
     model: imageModelId,
-    messages: [{ role: 'user', content: finalPrompt }],
-    max_tokens: 2048,
+    prompt: finalPrompt,
+    size: size,
   };
+
+  // 如果有参考图像，添加到请求体
+  if (referenceImages.length > 0) {
+    requestBody.image = referenceImages;
+    // 图生图需要将输出格式放在 extra_body 中
+    requestBody.extra_body = {
+      response_format: 'b64_json'
+    };
+  } else {
+    // 文生图：直接返回 Base64
+    requestBody.return_base64 = true;
+  }
 
   const response = await retryOperation(async () => {
-    const res = await fetch(`${apiBase}${requestEndpoint}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-        'Accept': '*/*'
-      },
-      body: JSON.stringify(requestBody)
-    });
+    // 图片生成需要较长的超时（根据AGNES文档：60-360秒）
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 360000); // 6分钟超时
 
-    if (!res.ok) {
-      // 特殊处理400、500状态码 - 提示词被风控拦截
-      if (res.status === 400) {
-        throw new Error('内容安全拦截：该提示词可能包含不安全或违规内容。请点击本镜头的「编辑」修改关键帧提示词，避免暴力、血腥、敏感描述后重试。');
-      }
-      else if (res.status === 500) {
-        throw new Error('当前请求较多，暂时未能处理成功，请稍后重试。');
-      }
-      
-      let errorMessage = `HTTP错误: ${res.status}`;
-      try {
-        const errorText = await res.text();
-        try {
-          const errorData = JSON.parse(errorText);
-          errorMessage = errorData.error?.message || errorMessage;
-        } catch {
-          if (errorText) errorMessage = errorText;
+    try {
+      const res = await fetch(`${apiBase}${requestEndpoint}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+          'Accept': '*/*'
+        },
+        body: JSON.stringify(requestBody),
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!res.ok) {
+        // 特殊处理400、403、500状态码
+        if (res.status === 400) {
+          throw new Error('内容安全拦截：该提示词可能包含不安全或违规内容。请点击本镜头的「编辑」修改关键帧提示词，避免暴力、血腥、敏感描述后重试。');
         }
-      } catch (_) {
-        // body 已读或解析失败，用默认 errorMessage
+        else if (res.status === 403) {
+          throw new Error('请求被拒绝 (403 Forbidden)：可能是 API 限流或 IP 被临时拦截。请稍后重试，或检查 API Key 是否有效。');
+        }
+        else if (res.status === 500) {
+          throw new Error('当前请求较多，暂时未能处理成功，请稍后重试。');
+        }
+        
+        let errorMessage = `HTTP错误: ${res.status}`;
+        try {
+          const errorText = await res.text();
+          try {
+            const errorData = JSON.parse(errorText);
+            errorMessage = errorData.error?.message || errorMessage;
+          } catch {
+            if (errorText) errorMessage = errorText;
+          }
+        } catch (_) {
+          // body 已读或解析失败，用默认 errorMessage
+        }
+        throw new Error(errorMessage);
       }
-      throw new Error(errorMessage);
-    }
 
-    return await res.json();
+      return await res.json();
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+      if (error.name === 'AbortError') {
+        throw new Error('图片生成超时（6分钟）：请求过程中超时。请稍后重试或尝试更简单的提示词。');
+      }
+      throw error;
+    }
   });
 
-  // 从字符串中提取 data URL（支持 Markdown：![image](data:image/...)）
-  const extractDataUrlFromContent = (text: string): string | null => {
-    if (!text || typeof text !== 'string') return null;
-    if (/^data:image\//i.test(text.trim())) return text.trim();
-    const markdownMatch = text.match(/!\[[^\]]*\]\((data:image\/[^;]+;base64,[^)]+)\)/i);
-    if (markdownMatch) return markdownMatch[1];
-    const anyDataMatch = text.match(/(data:image\/[^;]+;base64,[A-Za-z0-9+/=]+)/);
-    if (anyDataMatch) return anyDataMatch[1];
-    return null;
-  };
+  // AGNES API 返回格式：{ data: [ { b64_json: "..." } 或 { url: "..." } ], created: ... }
+  if (!response || !response.data || !Array.isArray(response.data) || response.data.length === 0) {
+    throw new Error('图片生成失败：API 返回了空响应');
+  }
 
-  // 提取图片：兼容 OpenAI 返回 (choices[].message.content) 与 Gemini 返回 (candidates[].content.parts)
-  const choices = response.choices;
-  if (choices && choices.length > 0) {
-    const msg = choices[0].message;
-    const content = msg?.content;
-    if (content) {
-      if (typeof content === 'string') {
-        const result = extractDataUrlFromContent(content) ?? (content.length > 100 ? `data:image/png;base64,${content}` : null);
-        if (result) {
-          addRenderLogWithTokens({
-            type: 'keyframe',
-            resourceId: 'image-' + Date.now(),
-            resourceName: prompt.substring(0, 50) + '...',
-            status: 'success',
-            model: imageModelId,
-            prompt: prompt,
-            duration: Date.now() - startTime
-          });
-          return result;
-        }
-      }
-      if (Array.isArray(content)) {
-        for (const item of content) {
-          if (item.type === 'image_url' && item.image_url?.url) {
-            const url = item.image_url.url;
-            const result = url.startsWith('data:') ? url : `data:image/png;base64,${url}`;
-            addRenderLogWithTokens({
-              type: 'keyframe',
-              resourceId: 'image-' + Date.now(),
-              resourceName: prompt.substring(0, 50) + '...',
-              status: 'success',
-              model: imageModelId,
-              prompt: prompt,
-              duration: Date.now() - startTime
-            });
-            return result;
-          }
-        }
-      }
-    }
+  const imageData = response.data[0];
+  let imageUrl: string | null = null;
+
+  // 优先使用 Base64（如果有）
+  if (imageData.b64_json) {
+    imageUrl = `data:image/png;base64,${imageData.b64_json}`;
+  } 
+  // 其次使用 URL
+  else if (imageData.url) {
+    imageUrl = imageData.url;
   }
-  const candidates = response.candidates || [];
-  if (candidates.length > 0 && candidates[0].content && candidates[0].content.parts) {
-    for (const part of candidates[0].content.parts) {
-      if (part.inlineData) {
-        const result = `data:image/png;base64,${part.inlineData.data}`;
-        addRenderLogWithTokens({
-          type: 'keyframe',
-          resourceId: 'image-' + Date.now(),
-          resourceName: prompt.substring(0, 50) + '...',
-          status: 'success',
-          model: imageModelId,
-          prompt: prompt,
-          duration: Date.now() - startTime
-        });
-        return result;
-      }
-    }
+
+  if (!imageUrl) {
+    throw new Error('图片生成失败：未能从响应中提取图片数据');
   }
-  throw new Error("图片生成失败 (No image data returned)");
+
+  addRenderLogWithTokens({
+    type: 'keyframe',
+    resourceId: 'image-' + Date.now(),
+    resourceName: prompt.substring(0, 50) + '...',
+    status: 'success',
+    model: imageModelId,
+    prompt: prompt,
+    duration: Date.now() - startTime
+  });
+  return imageUrl;
   } catch (error: any) {
     // Log failed generation
     addRenderLogWithTokens({

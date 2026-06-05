@@ -12,7 +12,8 @@ export default defineConfig(({ mode }) => {
           '/api-proxy': {
             target: 'https://apihub.agnes-ai.com',
             changeOrigin: true,
-            rewrite: (path) => path.replace(/^\/api-proxy/, ''),
+            // 保留 /v1 部分，只移除 /api-proxy 前缀
+            rewrite: (path) => path.replace(/^\/api-proxy/, '/v1'),
           },
         },
       },
@@ -23,7 +24,8 @@ export default defineConfig(({ mode }) => {
           '/api-proxy': {
             target: 'https://apihub.agnes-ai.com',
             changeOrigin: true,
-            rewrite: (path) => path.replace(/^\/api-proxy/, ''),
+            // 保留 /v1 部分，只移除 /api-proxy 前缀
+            rewrite: (path) => path.replace(/^\/api-proxy/, '/v1'),
           },
         },
       },

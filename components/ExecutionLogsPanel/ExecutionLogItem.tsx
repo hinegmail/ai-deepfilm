@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CheckCircle, AlertCircle } from 'lucide-react';
+import { CheckCircle, AlertCircle, Copy, Check } from 'lucide-react';
 import { RenderLog } from '@/types';
 import { formatTime, getTypeLabel } from './utils';
 
@@ -9,8 +9,19 @@ interface ExecutionLogItemProps {
 
 const ExecutionLogItem: React.FC<ExecutionLogItemProps> = ({ log }) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isCopied, setIsCopied] = useState(false);
   const isSuccess = log.status === 'success';
   const Icon = isSuccess ? CheckCircle : AlertCircle;
+
+  const handleCopyError = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (log.error) {
+      navigator.clipboard.writeText(log.error).then(() => {
+        setIsCopied(true);
+        setTimeout(() => setIsCopied(false), 2000);
+      });
+    }
+  };
 
   return (
     <div
@@ -46,8 +57,32 @@ const ExecutionLogItem: React.FC<ExecutionLogItemProps> = ({ log }) => {
 
       {/* 错误信息（展开时显示）*/}
       {isExpanded && log.error && (
-        <div className="mt-2 pt-2 border-t border-white/10 text-xs text-red-300 font-mono break-words max-h-32 overflow-auto bg-slate-900/70 p-2 rounded font-medium">
-          {log.error}
+        <div className="mt-2 pt-2 border-t border-white/10 bg-slate-900/70 p-2 rounded flex flex-col gap-2">
+          {/* 错误文本 - 允许选择和复制 */}
+          <div 
+            className="text-xs text-red-300 font-mono break-words max-h-32 overflow-auto font-medium select-all cursor-text"
+            style={{ userSelect: 'text', WebkitUserSelect: 'text' }}
+          >
+            {log.error}
+          </div>
+          
+          {/* 复制按钮 */}
+          <button
+            onClick={handleCopyError}
+            className="flex items-center gap-1 text-[11px] text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 px-2 py-1 rounded transition-colors w-fit"
+          >
+            {isCopied ? (
+              <>
+                <Check className="w-3 h-3" />
+                <span>已复制</span>
+              </>
+            ) : (
+              <>
+                <Copy className="w-3 h-3" />
+                <span>复制错误</span>
+              </>
+            )}
+          </button>
         </div>
       )}
     </div>
