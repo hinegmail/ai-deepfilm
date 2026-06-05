@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Users, Sparkles, RefreshCw, Loader2, MapPin, Archive, X, Search, Trash2 } from 'lucide-react';
 import { ProjectState, CharacterVariation, Character, Scene, AspectRatio, AssetLibraryItem } from '../../types';
 import { generateImage, generateVisualPrompts } from '../../services/geminiService';
+import { addRenderLog } from '../../services/renderLogService';
 import { 
   getRegionalPrefix, 
   handleImageUpload, 
@@ -125,12 +126,18 @@ const StageAssets: React.FC<Props> = ({ project, updateProject, onApiKeyError })
       }
       updateProject({ scriptData: newData });
     }
+
+    const startTime = Date.now();
+    const modelName = defaultImageModel?.name || 'unknown';
+    let resourceName = '';
+
     try {
       let prompt = "";
       
       if (type === 'character') {
         const char = project.scriptData?.characters.find(c => compareIds(c.id, id));
         if (char) {
+          resourceName = char.name;
           if (char.visualPrompt) {
             prompt = char.visualPrompt;
           } else {
@@ -151,6 +158,7 @@ const StageAssets: React.FC<Props> = ({ project, updateProject, onApiKeyError })
       } else {
         const scene = project.scriptData?.scenes.find(s => compareIds(s.id, id));
         if (scene) {
+          resourceName = scene.location;
           if (scene.visualPrompt) {
             prompt = scene.visualPrompt;
           } else {
@@ -175,6 +183,17 @@ const StageAssets: React.FC<Props> = ({ project, updateProject, onApiKeyError })
 
       const imageUrl = await generateImage(enhancedPrompt, [], aspectRatio);
 
+      const duration = Date.now() - startTime;
+      addRenderLog({
+        type: type as any,
+        resourceId: id,
+        resourceName,
+        status: 'success',
+        model: modelName,
+        duration,
+        prompt: enhancedPrompt
+      });
+
       if (project.scriptData) {
         const newData = { ...project.scriptData };
         if (type === 'character') {
@@ -194,6 +213,18 @@ const StageAssets: React.FC<Props> = ({ project, updateProject, onApiKeyError })
       }
 
     } catch (e: any) {
+      const duration = Date.now() - startTime;
+      
+      addRenderLog({
+        type: type as any,
+        resourceId: id,
+        resourceName,
+        status: 'failed',
+        model: modelName,
+        duration,
+        error: e.message || String(e)
+      });
+
       console.error(e);
       if (project.scriptData) {
         const newData = { ...project.scriptData };
@@ -554,12 +585,28 @@ const StageAssets: React.FC<Props> = ({ project, updateProject, onApiKeyError })
       if (v) v.status = 'generating';
       updateProject({ scriptData: newData });
     }
+
+    const startTime = Date.now();
+    const modelName = defaultImageModel?.name || 'unknown';
+    const resourceName = `${char.name}-${variation.name}`;
+
     try {
       const refImages = char.referenceImage ? [char.referenceImage] : [];
       const regionalPrefix = getRegionalPrefix(language, 'character');
       const enhancedPrompt = `${regionalPrefix}Character "${char.name}" wearing NEW OUTFIT: ${variation.visualPrompt}. This is a costume/outfit change - the character's face and identity must remain identical to the reference, but they should be wearing the described new outfit.`;
       
       const imageUrl = await generateImage(enhancedPrompt, refImages, aspectRatio, true);
+
+      const duration = Date.now() - startTime;
+      addRenderLog({
+        type: 'character-variation',
+        resourceId: varId,
+        resourceName,
+        status: 'success',
+        model: modelName,
+        duration,
+        prompt: enhancedPrompt
+      });
 
       const newData = { ...project.scriptData! };
       const c = newData.characters.find(c => compareIds(c.id, charId));
@@ -571,6 +618,18 @@ const StageAssets: React.FC<Props> = ({ project, updateProject, onApiKeyError })
 
       updateProject({ scriptData: newData });
     } catch (e: any) {
+      const duration = Date.now() - startTime;
+      
+      addRenderLog({
+        type: 'character-variation',
+        resourceId: varId,
+        resourceName,
+        status: 'failed',
+        model: modelName,
+        duration,
+        error: e.message || String(e)
+      });
+
       console.error(e);
       if (project.scriptData) {
         const newData = { ...project.scriptData };

@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { LayoutGrid, Sparkles, Loader2, AlertCircle, Edit2, Film, Video as VideoIcon } from 'lucide-react';
 import { ProjectState, Shot, Keyframe, AspectRatio, VideoDuration } from '../../types';
 import { generateImage, generateVideo, generateActionSuggestion, optimizeKeyframePrompt, optimizeBothKeyframes, enhanceKeyframePrompt, splitShotIntoSubShots, rewritePromptForModeration } from '../../services/geminiService';
+import { addRenderLog } from '../../services/renderLogService';
 import { 
   getRefImagesForShot, 
   buildKeyframePrompt,
@@ -24,7 +25,7 @@ import ShotCard from './ShotCard';
 import ShotWorkbench from './ShotWorkbench';
 import ImagePreviewModal from './ImagePreviewModal';
 import { useAlert } from '../GlobalAlert';
-import { getDefaultAspectRatio } from '../../services/modelRegistry';
+import { getDefaultAspectRatio, getActiveImageModel, getActiveVideoModel } from '../../services/modelRegistry';
 
 interface Props {
   project: ProjectState;
@@ -107,6 +108,10 @@ const StageDirector: React.FC<Props> = ({ project, updateProject, onApiKeyError 
       })
     }));
     
+    const startTime = Date.now();
+    const modelName = getActiveImageModel()?.name || 'unknown';
+    const resourceName = `${shot.id}-${type}`;
+
     let prompt: string;
     if (useAIEnhancement) {
       try {
@@ -123,6 +128,17 @@ const StageDirector: React.FC<Props> = ({ project, updateProject, onApiKeyError 
       const referenceImages = getRefImagesForShot(shot, project.scriptData);
       const url = await generateImage(prompt, referenceImages, keyframeAspectRatio);
 
+      const duration = Date.now() - startTime;
+      addRenderLog({
+        type: 'keyframe',
+        resourceId: kfId,
+        resourceName,
+        status: 'success',
+        model: modelName,
+        duration,
+        prompt
+      });
+
       updateProject((prevProject: ProjectState) => ({
         ...prevProject,
         shots: prevProject.shots.map(s => {
@@ -131,6 +147,18 @@ const StageDirector: React.FC<Props> = ({ project, updateProject, onApiKeyError 
         })
       }));
     } catch (e: any) {
+      const duration = Date.now() - startTime;
+      
+      addRenderLog({
+        type: 'keyframe',
+        resourceId: kfId,
+        resourceName,
+        status: 'failed',
+        model: modelName,
+        duration,
+        error: e.message || String(e)
+      });
+
       console.error(e);
       updateProject((prevProject: ProjectState) => ({
         ...prevProject,
@@ -217,6 +245,10 @@ const StageDirector: React.FC<Props> = ({ project, updateProject, onApiKeyError 
       }
     }));
     
+    const startTime = Date.now();
+    const modelName = getActiveVideoModel()?.name || selectedModel || 'unknown';
+    const resourceName = `${shot.id}-video`;
+
     try {
       const videoUrl = await generateVideo(
         videoPrompt, 
@@ -226,6 +258,17 @@ const StageDirector: React.FC<Props> = ({ project, updateProject, onApiKeyError 
         aspectRatio,
         duration
       );
+
+      const duration_ms = Date.now() - startTime;
+      addRenderLog({
+        type: 'video',
+        resourceId: intervalId,
+        resourceName,
+        status: 'success',
+        model: modelName,
+        duration: duration_ms,
+        prompt: videoPrompt
+      });
 
       updateShot(shot.id, (s) => ({
         ...s,
@@ -241,6 +284,18 @@ const StageDirector: React.FC<Props> = ({ project, updateProject, onApiKeyError 
         }
       }));
     } catch (e: any) {
+      const duration_ms = Date.now() - startTime;
+      
+      addRenderLog({
+        type: 'video',
+        resourceId: intervalId,
+        resourceName,
+        status: 'failed',
+        model: modelName,
+        duration: duration_ms,
+        error: e.message || String(e)
+      });
+
       console.error(e);
       updateShot(shot.id, (s) => ({
         ...s,

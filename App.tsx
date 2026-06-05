@@ -14,6 +14,9 @@ import { Save, CheckCircle, X } from 'lucide-react';
 import { saveProjectToDB } from './services/storageService';
 import { setGlobalApiKey } from './services/geminiService';
 import { setLogCallback, clearLogCallback } from './services/renderLogService';
+// 开发环境：导入测试工具
+import './test-logging';
+
 const LOGO_URL = 'https://www.gitcc.com/uploads/-/system/appearance/header_logo/1/gitpp.png';
 
 function App() {
@@ -267,6 +270,7 @@ function App() {
         setStage={setStage} 
         onExit={handleExitProject} 
         projectName={project.title}
+        projectId={project.id}
         onShowOnboarding={handleShowOnboarding}
         onShowModelConfig={() => setShowModelConfig(true)}
       />

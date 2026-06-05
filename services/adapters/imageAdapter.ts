@@ -44,7 +44,9 @@ export const callImageApi = async (
   
   const apiBase = getApiBaseUrlForModel(activeModel.id);
   const apiModel = activeModel.apiModel || activeModel.id;
-  const endpoint = '/v1/chat/completions';
+  
+  // 使用模型定义中的端点，如果没有则使用默认的图片生成端点
+  const endpoint = activeModel.endpoint || '/v1/images/generations';
 
   let finalPrompt = options.prompt;
   if (options.referenceImages && options.referenceImages.length > 0) {

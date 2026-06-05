@@ -1,6 +1,7 @@
 // Author: forsearch | Updated: 2026-04-30
 import React from 'react';
 import { LayoutDashboard, FileText, Users, Clapperboard, Film, ChevronLeft, ListTree, HelpCircle, Cpu } from 'lucide-react';
+import ExecutionLogsPanel from './ExecutionLogsPanel';
 const LOGO_URL = 'https://www.gitcc.com/uploads/-/system/appearance/header_logo/1/gitpp.png';
 
 interface SidebarProps {
@@ -8,11 +9,12 @@ interface SidebarProps {
   setStage: (stage: 'script' | 'assets' | 'director' | 'export' | 'prompts') => void;
   onExit: () => void;
   projectName?: string;
+  projectId: string;
   onShowOnboarding?: () => void;
   onShowModelConfig?: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ currentStage, setStage, onExit, projectName, onShowOnboarding, onShowModelConfig }) => {
+const Sidebar: React.FC<SidebarProps> = ({ currentStage, setStage, onExit, projectName, projectId, onShowOnboarding, onShowModelConfig }) => {
   const navItems = [
     { id: 'script', label: '剧情创作', icon: FileText, sub: 'Phase 01' },
     { id: 'assets', label: '场景角色', icon: Users, sub: 'Phase 02' },
@@ -54,7 +56,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentStage, setStage, onExit, proje
          <div className="text-sm font-medium text-slate-100 truncate font-mono">{projectName || '未命名项目'}</div>
       </div>
 
-      <nav className="relative flex-1 p-4 space-y-2">
+      <nav className="relative flex-shrink-0 p-4 space-y-2">
         {navItems.map((item) => {
           const isActive = currentStage === item.id;
           return (
@@ -81,7 +83,13 @@ const Sidebar: React.FC<SidebarProps> = ({ currentStage, setStage, onExit, proje
         })}
       </nav>
 
-      <div className="relative p-6 border-t border-white/10 space-y-3">
+      <div className="h-2" />
+
+      <div className="relative flex-1 flex flex-col overflow-hidden">
+        <ExecutionLogsPanel projectId={projectId} />
+      </div>
+
+      <div className="relative flex-shrink-0 p-6 border-t border-white/10 space-y-3">
         {onShowOnboarding && (
           <button 
             onClick={onShowOnboarding}
