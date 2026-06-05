@@ -197,8 +197,39 @@ const callSoraApi = async (
   formData.append('size', size);
 
   if (options.startImage) {
-    const cleanBase64 = options.startImage.replace(/^data:image\/(png|jpeg|jpg);base64,/, '');
-    const resizedBase64 = await resizeImageToSize(cleanBase64, width, height);
+    // 处理两种格式：Base64（data:...）或 URL（http://...）
+    let imageBase64: string;
+    
+    if (options.startImage.startsWith('data:')) {
+      // Base64格式：移除前缀
+      imageBase64 = options.startImage.replace(/^data:image\/(png|jpeg|jpg);base64,/, '');
+    } else if (options.startImage.startsWith('http')) {
+      // URL格式：下载并转换为Base64
+      try {
+        const response = await fetch(options.startImage);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const blob = await response.blob();
+        const reader = new FileReader();
+        const base64Promise = new Promise<string>((resolve, reject) => {
+          reader.onloadend = () => {
+            const result = reader.result as string;
+            // 提取Base64部分（移除data:...;base64,前缀）
+            const base64 = result.replace(/^data:image\/(png|jpeg|jpg);base64,/, '');
+            resolve(base64);
+          };
+          reader.onerror = () => reject(new Error('Failed to read image'));
+        });
+        reader.readAsDataURL(blob);
+        imageBase64 = await base64Promise;
+      } catch (error: any) {
+        throw new Error(`Failed to download start image: ${error.message}`);
+      }
+    } else {
+      // 假设是纯Base64（没有前缀）
+      imageBase64 = options.startImage;
+    }
+
+    const resizedBase64 = await resizeImageToSize(imageBase64, width, height);
     
     const byteCharacters = atob(resizedBase64);
     const byteNumbers = new Array(byteCharacters.length);

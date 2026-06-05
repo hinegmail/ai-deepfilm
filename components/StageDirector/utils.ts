@@ -117,7 +117,17 @@ export const buildVideoPrompt = (
       .replace('{actionSummary}', actionSummary)
       .replace('{cameraMovement}', cameraMovement)
       .replace('{language}', language);
+  } else if (videoModel.includes('agnes')) {
+    // Agnes 视频模型使用简洁格式
+    const template = isChinese 
+      ? VIDEO_PROMPT_TEMPLATES.agnes.chinese 
+      : VIDEO_PROMPT_TEMPLATES.agnes.english;
+    
+    return template
+      .replace('{actionSummary}', actionSummary)
+      .replace('{cameraMovement}', cameraMovement);
   } else {
+    // VEO 和其他模型的简洁格式
     return VIDEO_PROMPT_TEMPLATES.veo.simple
       .replace('{actionSummary}', actionSummary)
       .replace('{cameraMovement}', cameraMovement)

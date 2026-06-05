@@ -1212,69 +1212,148 @@ const resizeImageToSize = async (base64Data: string, targetWidth: number, target
 };
 
 /**
- * sora-2专用：使用异步API生成视频
+ * 异步模式视频生成（支持 AGNES Video、OpenAI Realtime 等异步 API）
  * 流程：1. 创建任务 -> 2. 轮询状态 -> 3. 下载视频
  * @param prompt - 视频生成提示词
- * @param startImageBase64 - 起始关键帧图像(base64格式，可选)
+ * @param startImageBase64 - 起始关键帧图像(支持 URL 或 base64格式，可选)
  * @param apiKey - API密钥
  * @param aspectRatio - 横竖屏比例，支持 '16:9'（横屏）、'9:16'（竖屏）、'1:1'（方形）
- * @param duration - 视频时长，支持 4、8、12 秒
+ * @param duration - 视频时长（秒）
  * @returns 返回视频的base64编码
  */
-const generateVideoWithSora2 = async (
+const generateVideoAsync = async (
   prompt: string, 
   startImageBase64: string | undefined, 
+  endImageBase64: string | undefined,
   apiKey: string,
   aspectRatio: AspectRatio = '16:9',
   duration: VideoDuration = 8,
-  modelName: string = 'sora-2'
+  modelName: string = 'agnes-video-v2.0'
 ): Promise<string> => {
   console.log(`🎬 使用异步模式生成视频 (${modelName}, ${aspectRatio}, ${duration}秒)...`);
   
-  // 根据横竖屏比例计算视频尺寸
+  // 根据时长计算帧数（num_frames 必须满足 8n + 1）
+  let numFrames = 121; // 默认约5秒 (121/24 ≈ 5秒)
+  if (duration === 12) {
+    numFrames = 441; // 最长约18秒 (441/24 ≈ 18秒)
+  } else if (duration === 4) {
+    numFrames = 81; // 约3秒 (81/24 ≈ 3秒)
+  }
+  
+  const frameRate = 24; // 固定 24 FPS
+  const actualDuration = numFrames / frameRate;
+  
+  console.log(`📐 帧数配置: ${numFrames} 帧 @ ${frameRate} FPS = ${actualDuration.toFixed(1)} 秒`);
+  
+  // 获取视频尺寸
   const videoSize = getSoraVideoSize(aspectRatio);
   const [VIDEO_WIDTH, VIDEO_HEIGHT] = videoSize.split('x').map(Number);
-  
   console.log(`📐 视频尺寸: ${VIDEO_WIDTH}x${VIDEO_HEIGHT}`);
   
   // 获取 API 基础 URL
   const apiBase = getApiBase('video', modelName);
   
-  // Step 1: 创建视频任务
-  const formData = new FormData();
-  formData.append('model', modelName);
-  formData.append('prompt', prompt);
-  formData.append('seconds', String(duration));
-  formData.append('size', videoSize);
+  // 处理关键帧
+  const keyframes: string[] = [];
   
-  // 如果有参考图片，调整尺寸后添加到FormData
   if (startImageBase64) {
-    const cleanBase64 = startImageBase64.replace(/^data:image\/(png|jpeg|jpg);base64,/, '');
-    
-    // 调整图片尺寸以匹配视频尺寸要求
-    console.log(`📐 调整参考图片尺寸至 ${VIDEO_WIDTH}x${VIDEO_HEIGHT}...`);
-    const resizedBase64 = await resizeImageToSize(cleanBase64, VIDEO_WIDTH, VIDEO_HEIGHT);
-    
-    // 将base64转换为Blob
-    const byteCharacters = atob(resizedBase64);
-    const byteNumbers = new Array(byteCharacters.length);
-    for (let i = 0; i < byteCharacters.length; i++) {
-      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    if (startImageBase64.startsWith('http://') || startImageBase64.startsWith('https://')) {
+      // URL 格式，直接使用
+      console.log(`📷 起始帧使用 URL: ${startImageBase64.substring(0, 80)}...`);
+      keyframes.push(startImageBase64);
+    } else if (startImageBase64.startsWith('data:')) {
+      // data URI 格式
+      console.log('📷 起始帧使用 Data URI');
+      keyframes.push(startImageBase64);
     }
-    const byteArray = new Uint8Array(byteNumbers);
-    const blob = new Blob([byteArray], { type: 'image/png' });
-    formData.append('input_reference', blob, 'reference.png');
-    console.log('✅ 参考图片已调整尺寸并添加');
   }
   
-  // 创建任务
-  const createResponse = await fetch(`${apiBase}/v1/videos`, {
+  if (endImageBase64) {
+    if (endImageBase64.startsWith('http://') || endImageBase64.startsWith('https://')) {
+      // URL 格式，直接使用
+      console.log(`📷 结束帧使用 URL: ${endImageBase64.substring(0, 80)}...`);
+      keyframes.push(endImageBase64);
+    } else if (endImageBase64.startsWith('data:')) {
+      // data URI 格式
+      console.log('📷 结束帧使用 Data URI');
+      keyframes.push(endImageBase64);
+    }
+  }
+  
+  // 构建请求体 - 根据模式类型决定包含的字段
+  let requestBody: Record<string, any> = {
+    model: modelName,
+    prompt: prompt,
+    num_frames: numFrames,
+    frame_rate: frameRate
+  };
+  
+  // 根据关键帧情况调整请求体
+  if (keyframes.length === 2) {
+    // 关键帧动画模式：在两个关键帧之间生成平滑过渡
+    // 注意：关键帧模式下 width/height 由图像决定，不应该包含在请求体中
+    console.log('🎬 使用关键帧动画模式');
+    requestBody = {
+      model: modelName,
+      prompt: prompt,
+      num_frames: numFrames,
+      frame_rate: frameRate,
+      extra_body: {
+        image: keyframes,
+        mode: 'keyframes'
+      }
+    };
+  } else if (keyframes.length === 1) {
+    // 单图生成模式：从单个图像生成视频
+    console.log('🎬 使用图生视频模式');
+    requestBody = {
+      model: modelName,
+      prompt: prompt,
+      num_frames: numFrames,
+      frame_rate: frameRate,
+      image: keyframes[0],
+      width: VIDEO_WIDTH,
+      height: VIDEO_HEIGHT
+    };
+  } else {
+    // 文生视频模式：纯文本生成视频
+    console.log('🎬 使用文生视频模式');
+    requestBody = {
+      model: modelName,
+      prompt: prompt,
+      num_frames: numFrames,
+      frame_rate: frameRate,
+      width: VIDEO_WIDTH,
+      height: VIDEO_HEIGHT
+    };
+  }
+  
+  console.log('📋 开始创建异步视频任务...');
+  console.log('📍 API Base URL:', apiBase);
+  
+  // Step 1: 创建视频任务
+  // URL 构建逻辑：
+  // - 本地开发：apiBase = /api-proxy → /api-proxy/videos (Vite 代理会添加 /v1)
+  // - 生产环境：apiBase = https://apihub.agnes-ai.com/v1 → https://apihub.agnes-ai.com/v1/videos
+  const videoApiUrl = apiBase.endsWith('/v1')
+    ? `${apiBase}/videos`  // 已包含 /v1
+    : apiBase === '/api-proxy'
+    ? `${apiBase}/videos`  // 本地代理（代理会添加 /v1）
+    : `${apiBase}/v1/videos`;  // 其他情况
+  
+  console.log('🔗 Video API URL:', videoApiUrl);
+  console.log('📝 Request Body:', JSON.stringify(requestBody, null, 2));
+  
+  const createResponse = await fetch(videoApiUrl, {
     method: 'POST',
     headers: {
+      'Content-Type': 'application/json',
       'Authorization': `Bearer ${apiKey}`
     },
-    body: formData
+    body: JSON.stringify(requestBody)
   });
+  
+  console.log('📊 Response Status:', createResponse.status, createResponse.statusText);
   
   if (!createResponse.ok) {
     const errorText = await createResponse.text();
@@ -1282,26 +1361,34 @@ const generateVideoWithSora2 = async (
   }
   
   const createData = await createResponse.json();
-  // 响应格式可能是 { id: "sora-2:task_xxx" } 或 { task_id: "xxx" }
+  // 响应格式可能是 { id: "task_xxx" } 或 { task_id: "xxx" }
   const taskId = createData.id || createData.task_id;
   if (!taskId) {
     throw new Error('创建视频任务失败：未返回任务ID');
   }
   
-  console.log('📋 sora-2任务已创建，任务ID:', taskId);
+  console.log('📋 异步视频任务已创建，任务ID:', taskId);
   
   // Step 2: 轮询查询任务状态
-  const maxPollingTime = 1200000; // 20分钟超时
-  const pollingInterval = 5000; // 每5秒查询一次
+  const maxPollingTime = 1800000; // 30分钟超时（留给服务器更多时间）
+  const pollingInterval = 10000; // 每10秒查询一次（减少请求频率）
   const startTime = Date.now();
   
-  let videoId: string | null = null;
+  let videoUrl: string | null = null;
   let completedStatus: Record<string, unknown> | null = null;
+  let lastLoggedStatus: string | null = null;
+  let statusUnchangedCount = 0;
 
   while (Date.now() - startTime < maxPollingTime) {
     await new Promise(resolve => setTimeout(resolve, pollingInterval));
     
-    const statusResponse = await fetch(`${apiBase}/v1/videos/${taskId}`, {
+    const statusUrl = apiBase.endsWith('/v1')
+      ? `${apiBase}/videos/${taskId}`  // 已包含 /v1
+      : apiBase === '/api-proxy'
+      ? `${apiBase}/videos/${taskId}`  // 本地代理
+      : `${apiBase}/v1/videos/${taskId}`;  // 其他情况
+    
+    const statusResponse = await fetch(statusUrl, {
       method: 'GET',
       headers: {
         'Accept': 'application/json',
@@ -1316,72 +1403,47 @@ const generateVideoWithSora2 = async (
     
     const statusData = await statusResponse.json();
     const status = statusData.status;
+    const progress = statusData.progress || 0;
+    const elapsedSeconds = Math.round((Date.now() - startTime) / 1000);
     
-    console.log('🔄 sora-2任务状态:', status, '进度:', statusData.progress);
+    // 仅在状态改变时打印日志
+    if (status !== lastLoggedStatus) {
+      console.log(`🔄 任务状态: ${status} (进度: ${progress}%, 已耗时: ${elapsedSeconds}s)`);
+      lastLoggedStatus = status;
+      statusUnchangedCount = 0;
+    } else {
+      statusUnchangedCount++;
+      if (statusUnchangedCount % 6 === 0) {  // 每 60 秒打印一次心跳
+        console.log(`💓 状态保持: ${status} (进度: ${progress}%, 已耗时: ${elapsedSeconds}s)`);
+      }
+    }
     
     if (status === 'completed' || status === 'succeeded') {
       completedStatus = statusData as Record<string, unknown>;
-      videoId = resolveSoraVideoDownloadId(statusData as Record<string, unknown>);
-      if (!videoId && statusData.outputs?.length) {
-        const o0 = statusData.outputs[0];
-        videoId = typeof o0 === 'string' ? o0 : o0?.id;
+      // 根据文档，视频 URL 在 remixed_from_video_id 字段中
+      videoUrl = statusData.remixed_from_video_id || statusData.video_url || statusData.url;
+      if (!videoUrl) {
+        console.error('📋 完成状态响应:', JSON.stringify(statusData, null, 2));
+        throw new Error('视频生成完成但未返回视频 URL');
       }
-      if (!videoId) {
-        videoId = statusData.id || null;
-      }
-      // 部分网关 completed 首包 id 仍为 task_，再拉一次状态取 video_xxx（避免 /content 用 task_ 导致 502）
-      if (videoId && String(videoId).startsWith('task_')) {
-        await new Promise((r) => setTimeout(r, 1500));
-        try {
-          const refresh = await fetch(`${apiBase}/v1/videos/${taskId}`, {
-            method: 'GET',
-            headers: { Accept: 'application/json', Authorization: `Bearer ${apiKey}` },
-          });
-          if (refresh.ok) {
-            const refreshed = await refresh.json();
-            const v2 = resolveSoraVideoDownloadId(refreshed as Record<string, unknown>);
-            if (v2 && v2.startsWith('video_')) {
-              videoId = v2;
-              console.log('✅ 刷新状态后使用视频资源 ID:', videoId);
-            }
-          }
-        } catch (_) {
-          /* 忽略刷新失败，仍用原 id 尝试下载 */
-        }
-      }
-      console.log('✅ 任务完成，用于下载的 ID:', videoId);
+      console.log('✅ 任务完成，视频 URL:', videoUrl.substring(0, 100));
       break;
     } else if (status === 'failed' || status === 'error') {
       const err = statusData.error;
       const errMsg = typeof err === 'string' ? err : (err?.message || err?.code || statusData.message || '未知错误');
-      if (err?.code === 'moderation_blocked') {
-        throw new Error(formatModerationBlockedForUser(err, 'sora'));
-      }
+      console.error('❌ 任务失败详情:', JSON.stringify(statusData, null, 2));
       throw new Error(`视频生成失败: ${errMsg}`);
     }
-    // 其他状态（pending, processing等）继续轮询
+    // 其他状态（queued、in_progress等）继续轮询
   }
 
-  // 优先使用任务 JSON 中的直链（MinIO/S3 等），避免经 /api-proxy 请求 /content 导致 502
-  const directUrl = completedStatus ? extractSoraDirectVideoUrl(completedStatus) : null;
-  if (directUrl) {
-    try {
-      console.log('📥 使用任务返回的直链下载视频');
-      const dataUrl = await fetchVideoUrlAsDataUrl(directUrl);
-      console.log('✅ sora-2 视频已通过直链转为 base64');
-      return dataUrl;
-    } catch (e: any) {
-      console.warn('⚠️ 直链下载失败（可能为跨域），将回退 /v1/videos/.../content:', e?.message);
-    }
+  if (!videoUrl) {
+    throw new Error('视频生成超时 (30分钟) 或未返回视频URL');
   }
 
-  if (!videoId) {
-    throw new Error('视频生成超时 (20分钟) 或未返回视频ID');
-  }
+  console.log('✅ 异步视频生成完成');
 
-  console.log('✅ sora-2视频生成完成，视频ID:', videoId);
-
-  // Step 3: 下载视频内容（带重试和超时机制）
+  // Step 3: 下载视频并转换为 base64
   const maxDownloadRetries = 5;
   const downloadTimeout = 600000; // 10分钟超时
   
@@ -1392,44 +1454,14 @@ const generateVideoWithSora2 = async (
       const downloadController = new AbortController();
       const downloadTimeoutId = setTimeout(() => downloadController.abort(), downloadTimeout);
       
-      const downloadResponse = await fetch(`${apiBase}/v1/videos/${videoId}/content`, {
+      const downloadResponse = await fetch(videoUrl, {
         method: 'GET',
-        headers: {
-          'Accept': '*/*',
-          'Authorization': `Bearer ${apiKey}`
-        },
         signal: downloadController.signal
       });
       
       clearTimeout(downloadTimeoutId);
       
       if (!downloadResponse.ok) {
-        // 502 且当前用的是 task_：再拉一次任务详情，尝试换成 video_ 后重试（避免误用 task id 调 /content）
-        if (
-          downloadResponse.status === 502 &&
-          videoId &&
-          String(videoId).startsWith('task_') &&
-          attempt < maxDownloadRetries
-        ) {
-          try {
-            const refresh = await fetch(`${apiBase}/v1/videos/${taskId}`, {
-              method: 'GET',
-              headers: { Accept: 'application/json', Authorization: `Bearer ${apiKey}` },
-            });
-            if (refresh.ok) {
-              const d = await refresh.json();
-              const v2 = resolveSoraVideoDownloadId(d as Record<string, unknown>);
-              if (v2 && v2.startsWith('video_')) {
-                videoId = v2;
-                console.warn('⚠️ 下载 502，已切换为 video_ 资源 ID 重试:', videoId);
-                await new Promise((r) => setTimeout(r, 3000));
-                continue;
-              }
-            }
-          } catch (_) {
-            /* fall through */
-          }
-        }
         if (downloadResponse.status >= 500 && attempt < maxDownloadRetries) {
           console.warn(`⚠️ 下载失败 HTTP ${downloadResponse.status}，${5 * attempt}秒后重试...`);
           await new Promise(resolve => setTimeout(resolve, 5000 * attempt));
@@ -1438,36 +1470,17 @@ const generateVideoWithSora2 = async (
         throw new Error(`下载视频失败: HTTP ${downloadResponse.status}`);
       }
       
-      // 检查响应类型，可能直接返回视频blob或返回URL
-      const contentType = downloadResponse.headers.get('content-type');
-      
-      if (contentType && contentType.includes('video')) {
-        // 直接返回视频数据
-        const videoBlob = await downloadResponse.blob();
-        return new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onloadend = () => {
-            const result = reader.result as string;
-            console.log('✅ sora-2视频已转换为base64格式');
-            resolve(result);
-          };
-          reader.onerror = () => reject(new Error('视频转base64失败'));
-          reader.readAsDataURL(videoBlob);
-        });
-      } else {
-        // 可能返回JSON包含URL
-        const downloadData = await downloadResponse.json();
-        const videoUrl = downloadData.url || downloadData.video_url || downloadData.download_url;
-        
-        if (!videoUrl) {
-          throw new Error('未获取到视频下载地址');
-        }
-        
-        // 下载并转换为base64
-        const videoBase64 = await convertVideoUrlToBase64(videoUrl);
-        console.log('✅ sora-2视频已转换为base64格式');
-        return videoBase64;
-      }
+      const videoBlob = await downloadResponse.blob();
+      return new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const result = reader.result as string;
+          console.log('✅ 异步视频已转换为base64格式');
+          resolve(result);
+        };
+        reader.onerror = () => reject(new Error('视频转base64失败'));
+        reader.readAsDataURL(videoBlob);
+      });
     } catch (error: any) {
       if (error.name === 'AbortError') {
         console.warn(`⚠️ 下载超时，${5 * attempt}秒后重试...`);
@@ -1490,19 +1503,19 @@ const generateVideoWithSora2 = async (
 };
 
 /**
- * 生成视频(Agent 8)
- * 使用antsk视频生成API (veo_3_1 或 sora-2)
+ * 生成视频
+ * 使用多种视频生成 API（异步模式和同步模式）
  * 通过起始帧和结束帧生成视频片段
  * @param prompt - 视频生成提示词
- * @param startImageBase64 - 起始关键帧图像(base64格式)
- * @param endImageBase64 - 结束关键帧图像(base64格式)
- * @param model - 使用的视频生成模型，'veo' 会根据 aspectRatio 自动选择具体模型，'sora-2' 使用异步API
- * @param aspectRatio - 横竖屏比例，支持 '16:9'（横屏，默认）、'9:16'（竖屏）、'1:1'（方形，仅 sora-2 支持）
- * @param duration - 视频时长（仅 sora-2 支持），支持 4、8、12 秒
+ * @param startImageBase64 - 起始关键帧图像(base64或URL格式)
+ * @param endImageBase64 - 结束关键帧图像(base64或URL格式)
+ * @param model - 使用的视频生成模型，'veo' 会根据 aspectRatio 自动选择具体模型，异步模型使用 /v1/videos API
+ * @param aspectRatio - 横竖屏比例，支持 '16:9'（横屏，默认）、'9:16'（竖屏）、'1:1'（方形）
+ * @param duration - 视频时长（秒），支持 4、8、12 秒
  * @returns 返回生成的视频base64编码(而非URL),用于存储到indexedDB
  * @throws 如果视频生成失败则抛出错误
  * @note 视频URL会过期,因此转换为base64存储
- * @note sora-2使用异步API模式(/v1/videos)，veo模型使用同步模式(/v1/chat/completions)
+ * @note 异步 API 使用轮询模式（/v1/videos），同步 API 使用流式/非流式模式（/v1/chat/completions）
  */
 export const generateVideo = async (
   prompt: string, 
@@ -1516,11 +1529,11 @@ export const generateVideo = async (
   const requestModel = resolveRequestModel('video', model) || model;
   const apiKey = checkApiKey('video', model);
   const apiBase = getApiBase('video', model);
-  const isAsyncMode = resolvedVideoModel?.params?.mode === 'async' || requestModel === 'sora-2';
+  const isAsyncMode = (resolvedVideoModel as any)?.params?.mode === 'async';
   
-  // sora-2 使用异步API模式
+  // 异步 API 模式（支持 AGNES Video 等）
   if (isAsyncMode) {
-    return generateVideoWithSora2(prompt, startImageBase64, apiKey, aspectRatio, duration, requestModel || 'sora-2');
+    return generateVideoAsync(prompt, startImageBase64, endImageBase64, apiKey, aspectRatio, duration, requestModel || 'agnes-video-v2.0');
   }
   
   // 如果是 veo 模型，根据横竖屏和是否有参考图动态选择模型名称
@@ -1538,9 +1551,26 @@ export const generateVideo = async (
   }
   
   // Veo 模型使用同步模式 (/v1/chat/completions)
-  // Clean base64 strings
-  const cleanStart = startImageBase64?.replace(/^data:image\/(png|jpeg|jpg);base64,/, '') || '';
-  const cleanEnd = endImageBase64?.replace(/^data:image\/(png|jpeg|jpg);base64,/, '') || '';
+  // 处理Base64或URL格式的图像
+  const formatImageUrl = (imageData: string): string => {
+    if (!imageData) return '';
+    
+    // 如果已经是data URI，直接返回
+    if (imageData.startsWith('data:')) {
+      return imageData;
+    }
+    
+    // 如果是HTTP(S) URL，直接返回
+    if (imageData.startsWith('http://') || imageData.startsWith('https://')) {
+      return imageData;
+    }
+    
+    // 否则假设是纯Base64，需要添加data URI前缀
+    return `data:image/png;base64,${imageData}`;
+  };
+
+  const startImageUrl = formatImageUrl(startImageBase64 || '');
+  const endImageUrl = formatImageUrl(endImageBase64 || '');
 
   // Build request body based on model requirements
   const messages: any[] = [
@@ -1548,21 +1578,21 @@ export const generateVideo = async (
   ];
 
   // Add images as content if provided
-  if (cleanStart) {
+  if (startImageUrl) {
     messages[0].content = [
       { type: 'text', text: prompt },
       { 
         type: 'image_url',
-        image_url: { url: `data:image/png;base64,${cleanStart}` }
+        image_url: { url: startImageUrl }
       }
     ];
   }
 
-  if (cleanEnd) {
+  if (endImageUrl) {
     if (Array.isArray(messages[0].content)) {
       messages[0].content.push({
         type: 'image_url',
-        image_url: { url: `data:image/png;base64,${cleanEnd}` }
+        image_url: { url: endImageUrl }
       });
     }
   }

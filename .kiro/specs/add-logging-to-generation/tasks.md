@@ -147,7 +147,7 @@
 3. **完整性检查**
    - [ ] 每条日志包含 type、resourceId、resourceName、status、model
    - [ ] duration 字段准确
-   - [ ] 失败日志包含 error 字段
+   - [~] 失败日志包含 error 字段
 
 ### 日志验证方法
 

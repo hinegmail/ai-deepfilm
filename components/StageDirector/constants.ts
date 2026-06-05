@@ -60,12 +60,16 @@ Technical Requirements:
   veo: {
     simple: `{actionSummary}
 
-镜头运动：{cameraMovement}
-配音语言：使用{language}配音`
+{cameraMovement}`
+  },
+  
+  agnes: {
+    chinese: `从起始帧平滑过渡到结束帧。{actionSummary} 镜头运动：{cameraMovement}`,
+    english: `Generate smooth motion from start frame to end frame. {actionSummary} Camera movement: {cameraMovement}`
   }
 };
 
 export const DEFAULTS = {
-  videoModel: 'sora-2' as const,
+  videoModel: 'agnes-video-v2.0' as const,  // 默认使用 AGNES 异步视频模型
   batchGenerateDelay: 3000,
 };
