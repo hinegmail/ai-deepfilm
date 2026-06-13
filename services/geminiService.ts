@@ -88,6 +88,20 @@ const getDefaultApiBase = (): string => {
   return DEFAULT_API_BASE;
 };
 
+const resolveGcsUrl = (url: string): string => {
+  if (!url) return url;
+  if (url.startsWith('https://storage.googleapis.com/')) {
+    if (typeof window !== 'undefined') {
+      const o = window.location.origin;
+      const isLocal = o.startsWith('http://localhost') || o.startsWith('http://127.0.0.1') || o.startsWith('https://localhost') || o.startsWith('https://127.0.0.1');
+      if (isLocal) {
+        return url.replace('https://storage.googleapis.com', '/gcs-proxy');
+      }
+    }
+  }
+  return url;
+};
+
 const getActiveChatModelName = (): string => {
   try {
     const model = getActiveChatModel();
@@ -121,7 +135,7 @@ const ANTSK_API_BASE = DEFAULT_API_BASE;
 export const verifyApiKey = async (key: string): Promise<{ success: boolean; message: string }> => {
   try {
     const apiBase = getApiBase('chat');
-    const response = await fetch(`${apiBase}/v1/chat/completions`, {
+    const response = await fetch(`${apiBase}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -243,7 +257,7 @@ const chatCompletion = async (prompt: string, model: string = 'gpt-5.1', tempera
   try {
     const apiBase = getApiBase('chat', model);
     const resolvedModel = resolveModel('chat', model);
-    const endpoint = resolvedModel?.endpoint || '/v1/chat/completions';
+    const endpoint = resolvedModel?.endpoint || '/chat/completions';
     const response = await fetch(`${apiBase}${endpoint}`, {
       method: 'POST',
       headers: {
@@ -317,7 +331,7 @@ const chatCompletionStream = async (
   try {
     const apiBase = getApiBase('chat', model);
     const resolvedModel = resolveModel('chat', model);
-    const endpoint = resolvedModel?.endpoint || '/v1/chat/completions';
+    const endpoint = resolvedModel?.endpoint || '/chat/completions';
     const response = await fetch(`${apiBase}${endpoint}`, {
       method: 'POST',
       headers: {
@@ -1023,6 +1037,7 @@ export const generateImage = async (
     model: imageModelId,
     prompt: finalPrompt,
     size: size,
+    response_format: 'b64_json', // 增加标准的 OpenAI 兼容参数以获取 Base64
   };
 
   // 如果有参考图像，添加到请求体
@@ -1033,7 +1048,7 @@ export const generateImage = async (
       response_format: 'b64_json'
     };
   } else {
-    // 文生图：直接返回 Base64
+    // 文生图：兼容某些非标准 API 直接返回 Base64 的参数
     requestBody.return_base64 = true;
   }
 
@@ -1108,6 +1123,31 @@ export const generateImage = async (
   // 其次使用 URL
   else if (imageData.url) {
     imageUrl = imageData.url;
+    
+    // 如果返回了公网 URL，为了防止 GCS 域名污染导致前端加载失败，
+    // 我们尝试在前端通过代理下载该图片并转换为 Base64 格式
+    if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+      try {
+        console.log('📷 图片接口返回了公网 URL，正在尝试通过代理下载并转换为 Base64...');
+        const resolvedUrl = resolveGcsUrl(imageUrl);
+        const imgResponse = await fetch(resolvedUrl);
+        if (imgResponse.ok) {
+          const blob = await imgResponse.blob();
+          const base64 = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          });
+          imageUrl = base64;
+          console.log('✅ 成功将图片 URL 转换为 Base64');
+        } else {
+          console.warn(`⚠️ 代理下载图片失败: HTTP ${imgResponse.status}`);
+        }
+      } catch (e) {
+        console.warn('⚠️ 下载转换为 Base64 失败，将保留原始 URL 作为降级方案:', e);
+      }
+    }
   }
 
   if (!imageUrl) {
@@ -1149,8 +1189,9 @@ export const generateImage = async (
  */
 const convertVideoUrlToBase64 = async (url: string): Promise<string> => {
   try {
-    // 下载视频文件
-    const response = await fetch(url);
+    // 下载视频文件 (通过代理转换以避开域名污染)
+    const resolvedUrl = resolveGcsUrl(url);
+    const response = await fetch(resolvedUrl);
     if (!response.ok) {
       throw new Error(`下载视频失败: HTTP ${response.status}`);
     }
@@ -1454,7 +1495,8 @@ const generateVideoAsync = async (
       const downloadController = new AbortController();
       const downloadTimeoutId = setTimeout(() => downloadController.abort(), downloadTimeout);
       
-      const downloadResponse = await fetch(videoUrl, {
+      const resolvedUrl = resolveGcsUrl(videoUrl);
+      const downloadResponse = await fetch(resolvedUrl, {
         method: 'GET',
         signal: downloadController.signal
       });
@@ -1603,7 +1645,7 @@ export const generateVideo = async (
 
   try {
     const response = await retryOperation(async () => {
-      const res = await fetch(`${apiBase}/v1/chat/completions`, {
+      const res = await fetch(`${apiBase}/chat/completions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

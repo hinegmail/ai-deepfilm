@@ -16,10 +16,8 @@ export const LANGUAGE_OPTIONS = [
 ];
 
 export const MODEL_OPTIONS = [
-  { label: 'GPT-5.1 (推荐)', value: 'gpt-5.1' },
-  { label: 'GPT-5.2', value: 'gpt-5.2' },
-  { label: 'GPT-4.1', value: 'gpt-41' },
-  { label: 'Claude Sonnet 4.5', value: 'claude-sonnet-4-5-20250929' },
+  { label: 'AGNES 2.0 Flash (推荐)', value: 'agnes-2.0-flash' },
+  { label: 'AGNES 2.0 Standard', value: 'agnes-2.0-standard' },
   { label: '其他 (自定义)', value: 'custom' }
 ];
 
@@ -53,6 +51,6 @@ export const STYLES = {
 export const DEFAULTS = {
   duration: '60s',
   language: '中文',
-  model: 'gpt-5.1',
+  model: 'agnes-2.0-flash',
   visualStyle: 'live-action'
 };

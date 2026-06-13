@@ -15,6 +15,12 @@ export default defineConfig(({ mode }) => {
             // 保留 /v1 部分，只移除 /api-proxy 前缀
             rewrite: (path) => path.replace(/^\/api-proxy/, '/v1'),
           },
+          '/gcs-proxy': {
+            target: 'https://storage.googleapis.com',
+            changeOrigin: true,
+            // 只移除 /gcs-proxy 前缀，其余路径原样转发
+            rewrite: (path) => path.replace(/^\/gcs-proxy/, ''),
+          },
         },
       },
       preview: {
@@ -26,6 +32,12 @@ export default defineConfig(({ mode }) => {
             changeOrigin: true,
             // 保留 /v1 部分，只移除 /api-proxy 前缀
             rewrite: (path) => path.replace(/^\/api-proxy/, '/v1'),
+          },
+          '/gcs-proxy': {
+            target: 'https://storage.googleapis.com',
+            changeOrigin: true,
+            // 只移除 /gcs-proxy 前缀，其余路径原样转发
+            rewrite: (path) => path.replace(/^\/gcs-proxy/, ''),
           },
         },
       },
