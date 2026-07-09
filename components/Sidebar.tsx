@@ -2,8 +2,6 @@
 import React from 'react';
 import { LayoutDashboard, FileText, Users, Clapperboard, Film, ChevronLeft, ListTree, HelpCircle, Cpu } from 'lucide-react';
 import ExecutionLogsPanel from './ExecutionLogsPanel';
-const LOGO_URL = 'https://www.gitcc.com/uploads/-/system/appearance/header_logo/1/gitpp.png';
-
 interface SidebarProps {
   currentStage: string;
   setStage: (stage: 'script' | 'assets' | 'director' | 'export' | 'prompts') => void;
@@ -27,20 +25,15 @@ const Sidebar: React.FC<SidebarProps> = ({ currentStage, setStage, onExit, proje
     <aside className="w-72 bg-slate-950/75 border-r border-cyan-300/10 h-screen fixed left-0 top-0 flex flex-col z-50 select-none backdrop-blur-2xl shadow-2xl shadow-cyan-950/30">
       <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_top,_rgba(34,211,238,0.12),_transparent_34%),linear-gradient(180deg,_rgba(15,23,42,0.7),_rgba(2,6,23,0.92))]" />
       <div className="relative p-6 border-b border-white/10">
-        <a
-          href="https://www.gitcc.com/"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-3 mb-6 group cursor-pointer"
-        >
+        <div className="flex items-center gap-3 mb-6 group select-text">
           <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-cyan-300/20 via-fuchsia-400/20 to-emerald-300/20 border border-white/15 flex items-center justify-center shadow-lg shadow-cyan-500/10 transition-transform group-hover:scale-105">
-            <img src={LOGO_URL} alt="Logo" className="w-7 h-7 flex-shrink-0" />
+            <Film className="w-6 h-6 text-cyan-300" />
           </div>
           <div className="overflow-hidden">
             <h1 className="text-sm font-bold text-white tracking-wider group-hover:text-cyan-100 transition-colors">AI 短剧工作室</h1>
             <p className="text-[10px] text-cyan-200/50 tracking-widest group-hover:text-cyan-200/80 transition-colors">Creative Studio</p>
           </div>
-        </a>
+        </div>
 
         <button
           onClick={onExit}

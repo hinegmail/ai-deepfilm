@@ -114,27 +114,6 @@ const ApiKeyPage: React.FC<ApiKeyPageProps> = ({
         )}
       </div>
 
-      {/* 获取 Key 链接 */}
-      <div className="flex items-center gap-4 mb-8">
-        <a 
-          href="http://api.gitcc.com" 
-          target="_blank" 
-          rel="noreferrer" 
-          className="text-xs text-cyan-300 hover:underline inline-flex items-center gap-1"
-        >
-          立即购买 <ExternalLink className="w-3 h-3" />
-        </a>
-        <span className="text-zinc-700">|</span>
-        <a 
-          href="https://www.gitcc.com" 
-          target="_blank" 
-          rel="noreferrer" 
-          className="text-xs text-cyan-300 hover:underline inline-flex items-center gap-1"
-        >
-          立即咨询 <ExternalLink className="w-3 h-3" />
-        </a>
-      </div>
-
       {/* 主按钮 */}
       <button
         onClick={handleVerifyAndContinue}

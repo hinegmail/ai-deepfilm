@@ -57,7 +57,7 @@ export const loadRegistry = (): ModelRegistryState => {
         }
       });
 
-      // 彻底移除任何 GitCC 相关的提供商
+      // 彻底移除任何已废弃的旧提供商
       parsed.providers = parsed.providers.filter(p => p.id !== 'gitcc' && p.id !== 'antsk');
 
       // 只保留存在于 BUILTIN_PROVIDERS 中的提供商（这是最后的防线）
@@ -97,12 +97,12 @@ export const loadRegistry = (): ModelRegistryState => {
         return { ...m, apiModel: m.id };
       });
 
-      // 清理旧的 Veo 内置模型和任何 GitCC 模型
+      // 清理旧的 Veo 内置模型和已废弃模型
       parsed.models = parsed.models.filter(
         m => !(m.type === 'video' && deprecatedVideoModelIds.includes(m.id)) && m.providerId !== 'gitcc'
       );
 
-      // 迁移激活视频模型和清理 GitCC 引用
+      // 迁移激活视频模型和清理已废弃模型的引用
       if (
         deprecatedVideoModelIds.includes(parsed.activeModels.video) ||
         parsed.activeModels.video?.startsWith('veo_3_1') ||
@@ -111,7 +111,7 @@ export const loadRegistry = (): ModelRegistryState => {
         parsed.activeModels.video = 'agnes:agnes-video-v2.0';
       }
       
-      // 清理任何 GitCC 模型引用
+      // 清理已废弃模型的引用
       if (parsed.activeModels.chat?.startsWith('gitcc:')) {
         parsed.activeModels.chat = 'agnes:agnes-2.0-flash';
       }
@@ -174,7 +174,7 @@ export const resetRegistry = (): void => {
  */
 export const getProviders = (): ModelProvider[] => {
   const providers = loadRegistry().providers;
-  // 最后防线：过滤掉任何 GitCC 或 antsk 提供商
+  // 最后防线：过滤掉任何已废弃的提供商
   return providers.filter(p => p.id !== 'gitcc' && p.id !== 'antsk');
 };
 

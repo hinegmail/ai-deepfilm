@@ -10,7 +10,7 @@ function getDistRoot() {
   return path.join(process.resourcesPath, 'app.asar.unpacked', 'dist');
 }
 
-const API_PROXY_TARGET = 'http://api.gitcc.com';
+const API_PROXY_TARGET = 'https://apihub.agnes-ai.com/v1';
 const DEFAULT_PORT = 39628;
 
 let mainWindow = null;

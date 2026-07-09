@@ -31,7 +31,7 @@ https://github.com/yuanzhongqiao/deep-printfilm/archive/refs/tags/PrintFilmPro-V
 npm install
 npm run dev
 ```
-After startup, access the local address displayed in the terminal. The Vite development environment proxies `/api-proxy` to the GitCC API for local debugging.
+After startup, access the local address displayed in the terminal. The Vite development environment proxies `/api-proxy` to the configured AI API for local debugging.
 
 
 ## Build Production Version
@@ -52,7 +52,7 @@ docker-compose down
   - `ai-manga-studio:latest` image  
   - `ai-manga-studio-app` container  
   - `ai-manga-studio-network` network  
-- Nginx hosts frontend static files and proxies `/api-proxy` to the GitCC API.
+- Nginx hosts frontend static files and proxies `/api-proxy` to the configured AI API.
 
 
 ## Docker Command Method
@@ -73,11 +73,11 @@ npm run electron:build:win
 - `electron:dev`: Builds the frontend first, then launches the Electron window.  
 - `electron:build`: Uses `electron-builder` to generate desktop installation packages.  
 - Windows installers are output to the `release/` directory with the product name **AI Manga Studio**.  
-- The desktop version includes a built-in local HTTP server that hosts the frontend and proxies `/api-proxy` to the GitCC API.
+- The desktop version includes a built-in local HTTP server that hosts the frontend and proxies `/api-proxy` to the configured AI API.
 
 
 ## Quick Start
-1. After launching the app, fill in your **GitCC API Key** in *Model Configuration*.  
+1. After launching the app, fill in your API Key (leave empty if using a local service like Ollama that does not require a key) in *Model Configuration*.  
 2. Go to **Phase 01: Plot Creation**: Enter a story idea to generate a script and storyboard.  
 3. Go to **Phase 02: Scene & Characters**: Generate character design sheets, costume variations, and scene images.  
 4. Go to **Phase 03: AI Workbench**: Generate keyframes and video clips one by one.  
@@ -152,32 +152,81 @@ docker-compose down
 剧情创作阶段用于把故事、小说片段或短剧创意整理为可生产的结构化内容。
 
 - **智能剧本拆解**：输入故事大纲或正文，AI 自动生成剧本结构、角色、场景和分镜。
-- **分镜规划**：按目标时长和节奏生成镜头列表，包含动作、台词、画面提示词等信息。
-- **视觉化翻译**：将文字描述转为更适合图像生成模型使用的画面提示词。
-- **手动编辑**：支持编辑角色描述、场景描述、镜头动作、台词和分镜画面提示词。
-- **项目配置**：支持目标时长、语言、模型和视觉风格等基础参数。
+- **分镜规划**：按目标时长和节奏生成镜头列表，包含动作、台- **AI 接口**：兼容 OpenAI 风格的通用 API 接口（如 Agnes AI、Ollama 或本地自定义服务）
+- **图片/视频资产**：支持 Base64、远程 URL、关键帧图像与视频片段
+- **桌面端**：Electron + electron-builder
+- **容器部署**：Docker + Nginx
 
-### Phase 02: 场景角色
+## AI 能力
 
-场景角色阶段用于沉淀后续画面生成需要使用的核心视觉资产。
+项目默认围绕兼容 OpenAI 格式的文本、图像与视频模型组织工作流：
 
-- **角色定妆**：为每个角色生成标准参考图。
-- **服装变体**：为角色维护多套造型，如日常、战斗、受伤、礼服等。
-- **场景概念图**：为故事中的关键场景生成环境参考图。
-- **图片上传**：支持手动上传角色、服装或场景图片作为参考资产。
-- **批量生成**：可以按角色或场景批量生成资产，减少重复操作。
+- **文本模型**：用于剧本拆解、角色/场景分析、提示词改写和视频描述生成。
+- **图像模型**：用于角色定妆、服装变体、场景概念图和关键帧生成。
+- **视频模型**：用于根据提示词、起始帧或起止关键帧生成视频片段。
 
-### Phase 03: AI工作台
+模型配置可以在应用内调整，适配不同上游模型名称、接口路径和参数。
 
-AI工作台是关键帧与视频片段制作的核心区域。
+## 数据与隐私
 
-- **镜头管理**：以网格和工作台形式管理所有镜头。
-- **关键帧生成**：为镜头生成起始帧和结束帧，便于控制构图和动作变化。
-- **上下文参考**：生成时会结合当前场景、角色定妆和服装变体，提升连续性。
-- **镜头拆分**：支持将长镜头拆分为子镜头，细化动作节奏。
-- **视频生成**：支持基于关键帧的视频生成流程，并记录渲染日志与状态。
+- 项目数据主要保存在浏览器 IndexedDB 中。
+- API Key 保存在本地配置中，用于调用对应的 AI 服务接口。
+- 应用不依赖自建业务后端，开发和桌面端会通过代理解决浏览器跨域问题。
+- 若清理浏览器站点数据，项目内容也会被清除，请按需导出备份。
 
-### Phase 04: 制片导出
+## 项目启动
+
+### 本地开发
+
+```bash
+npm install
+npm run dev
+```
+
+启动后访问终端输出的本地地址。Vite 开发环境会代理 `/api-proxy` 到配置时的 AI API，便于本地调试。
+
+### 构建生产版本
+
+```bash
+npm run build
+npm run preview
+```
+
+### Docker 部署
+
+```bash
+docker-compose up -d --build
+docker-compose logs -f
+docker-compose down
+```
+
+默认通过 `3005` 端口访问。Compose 会生成 `ai-manga-studio:latest` 镜像、`ai-manga-studio-app` 容器和 `ai-manga-studio-network` 网络。Nginx 会托管前端静态文件，并代理 `/api-proxy` 到对应的 AI 接口。
+
+### Docker 命令方式
+
+```bash
+docker build -t ai-manga-studio .
+docker run -d -p 3005:80 --name ai-manga-studio-app ai-manga-studio
+docker logs -f ai-manga-studio-app
+docker stop ai-manga-studio-app
+```
+
+### 桌面端
+
+```bash
+npm run electron:dev
+npm run electron:build
+npm run electron:build:win
+```
+
+- `electron:dev`：先构建前端，再启动 Electron 窗口。
+- `electron:build`：使用 electron-builder 生成桌面安装包。
+- Windows 安装包会以 `AI 短剧工作室` 为产品名输出到 `release/` 目录。
+- 桌面端内建本地 HTTP 服务，托管前端并代理 `/api-proxy` 到对应的 AI 接口。
+
+## 快速开始
+
+1. 启动应用后，在模型配置中填写你的 API Key（如果使用的是 Ollama 等本地不需要 Key 的服务可留空）。
 
 制片导出阶段用于集中预览、检查和下载项目成果。
 
@@ -202,14 +251,14 @@ AI工作台是关键帧与视频片段制作的核心区域。
 - **界面样式**：Tailwind CSS + 工业风深色界面
 - **图标库**：lucide-react
 - **本地存储**：IndexedDB，用于保存项目、角色、场景、镜头和生成记录
-- **AI 接口**：GitCC API，兼容 OpenAI 风格接口
+- **AI 接口**：兼容 OpenAI 风格的通用 API 接口（如 Agnes AI、Ollama 或本地自定义服务）
 - **图片/视频资产**：支持 Base64、远程 URL、关键帧图像与视频片段
 - **桌面端**：Electron + electron-builder
 - **容器部署**：Docker + Nginx
 
 ## AI 能力
 
-项目默认围绕 GitCC API 提供的文本、图像与视频模型组织工作流：
+项目默认围绕兼容 OpenAI 格式的文本、图像与视频模型组织工作流：
 
 - **文本模型**：用于剧本拆解、角色/场景分析、提示词改写和视频描述生成。
 - **图像模型**：用于角色定妆、服装变体、场景概念图和关键帧生成。
@@ -220,7 +269,7 @@ AI工作台是关键帧与视频片段制作的核心区域。
 ## 数据与隐私
 
 - 项目数据主要保存在浏览器 IndexedDB 中。
-- API Key 保存在本地配置中，用于调用 GitCC API。
+- API Key 保存在本地配置中，用于调用对应的 AI 服务接口。
 - 应用不依赖自建业务后端，开发和桌面端会通过代理解决浏览器跨域问题。
 - 若清理浏览器站点数据，项目内容也会被清除，请按需导出备份。
 
@@ -233,7 +282,7 @@ npm install
 npm run dev
 ```
 
-启动后访问终端输出的本地地址。Vite 开发环境会代理 `/api-proxy` 到 GitCC API，便于本地调试。
+启动后访问终端输出的本地地址。Vite 开发环境会代理 `/api-proxy` 到配置的 AI API，便于本地调试。
 
 ### 构建生产版本
 
@@ -250,7 +299,7 @@ docker-compose logs -f
 docker-compose down
 ```
 
-默认通过 `3005` 端口访问。Compose 会生成 `ai-manga-studio:latest` 镜像、`ai-manga-studio-app` 容器和 `ai-manga-studio-network` 网络。Nginx 会托管前端静态文件，并代理 `/api-proxy` 到 GitCC API。
+默认通过 `3005` 端口访问。Compose 会生成 `ai-manga-studio:latest` 镜像、`ai-manga-studio-app` 容器和 `ai-manga-studio-network` 网络。Nginx 会托管前端静态文件，并代理 `/api-proxy` 到对应的 AI 接口。
 
 ### Docker 命令方式
 
@@ -272,11 +321,11 @@ npm run electron:build:win
 - `electron:dev`：先构建前端，再启动 Electron 窗口。
 - `electron:build`：使用 electron-builder 生成桌面安装包。
 - Windows 安装包会以 `AI 短剧工作室` 为产品名输出到 `release/` 目录。
-- 桌面端内建本地 HTTP 服务，托管前端并代理 `/api-proxy` 到 GitCC API。
+- 桌面端内建本地 HTTP 服务，托管前端并代理 `/api-proxy` 到对应的 AI 接口。
 
 ## 快速开始
 
-1. 启动应用后，在模型配置中填写 GitCC API Key。
+1. 启动应用后，在模型配置中填写你的 API Key（如果使用的是 Ollama 等本地不需要 Key 的服务可留空）。
 2. 进入 Phase 01「剧情创作」，输入故事创意并生成剧本和分镜。
 3. 进入 Phase 02「场景角色」，生成角色定妆、服装变体和场景图。
 4. 进入 Phase 03「AI工作台」，逐个生成关键帧和视频片段。

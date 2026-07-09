@@ -1,6 +1,5 @@
 import React from 'react';
-import { Sparkles } from 'lucide-react';
-const LOGO_URL = 'https://www.gitcc.com/uploads/-/system/appearance/header_logo/1/gitpp.png';
+import { Sparkles, Film } from 'lucide-react';
 
 interface WelcomePageProps {
   onNext: () => void;
@@ -13,11 +12,9 @@ const WelcomePage: React.FC<WelcomePageProps> = ({ onNext, onSkip }) => {
       {/* 大图区域：Logo + 装饰 */}
       <div className="relative mb-8">
         <div className="absolute -inset-8 bg-gradient-to-r from-cyan-300/20 via-sky-400/20 to-fuchsia-400/20 rounded-full blur-3xl opacity-50"></div>
-        <img
-          src={LOGO_URL}
-          alt="AI 短剧工作室"
-          className="w-24 h-24 relative z-10"
-        />
+        <div className="w-24 h-24 relative z-10 rounded-[2rem] bg-gradient-to-br from-cyan-300/20 via-fuchsia-400/20 to-emerald-300/20 border border-white/15 flex items-center justify-center shadow-lg shadow-cyan-500/10">
+          <Film className="w-12 h-12 text-cyan-300" />
+        </div>
         <Sparkles className="absolute -top-2 -right-2 w-6 h-6 text-yellow-400 animate-pulse" />
       </div>
 

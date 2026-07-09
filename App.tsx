@@ -10,14 +10,12 @@ import Dashboard from './components/Dashboard';
 import Onboarding, { shouldShowOnboarding, resetOnboarding } from './components/Onboarding';
 import ModelConfigModal from './components/ModelConfig';
 import { ProjectState } from './types';
-import { Save, CheckCircle, X } from 'lucide-react';
+import { Save, CheckCircle, X, Film } from 'lucide-react';
 import { saveProjectToDB } from './services/storageService';
 import { setGlobalApiKey } from './services/geminiService';
 import { setLogCallback, clearLogCallback } from './services/renderLogService';
 // 开发环境：导入测试工具
 import './test-logging';
-
-const LOGO_URL = 'https://www.gitcc.com/uploads/-/system/appearance/header_logo/1/gitpp.png';
 
 function App() {
   const [project, setProject] = useState<ProjectState | null>(null);
@@ -219,7 +217,9 @@ function App() {
     return (
       <div className="h-screen bg-[#050505] flex items-center justify-center p-6">
         <div className="max-w-md text-center space-y-6">
-          <img src={LOGO_URL} alt="Logo" className="w-20 h-20 mx-auto mb-4" />
+          <div className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-cyan-300/20 via-fuchsia-400/20 to-emerald-300/20 border border-white/15 flex items-center justify-center shadow-lg shadow-cyan-500/10">
+            <Film className="w-10 h-10 text-cyan-300" />
+          </div>
           <h1 className="text-2xl font-bold text-white mb-2">AI 短剧工作室</h1>
           <div className="bg-[#0A0A0A] border border-zinc-800 rounded-xl p-8">
             <p className="text-zinc-400 text-base leading-relaxed mb-4">
@@ -228,11 +228,6 @@ function App() {
             <p className="text-zinc-600 text-sm">
               本应用需要较大的屏幕空间和桌面级浏览器环境才能正常运行。
             </p>
-          </div>
-          <div className="text-xs text-zinc-700">
-            <a href="https://www.gitcc.com/" target="_blank" rel="noreferrer" className="hover:text-indigo-400 transition-colors">
-              访问产品首页了解更多
-            </a>
           </div>
         </div>
       </div>

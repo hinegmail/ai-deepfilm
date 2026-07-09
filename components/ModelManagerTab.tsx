@@ -149,37 +149,6 @@ const ModelManagerTab: React.FC<ModelManagerTabProps> = ({ onConfigChange }) => 
 
   return (
     <div className="space-y-6">
-      {/* 折扣广告卡片 */}
-      <div className="bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-pink-500/10 border border-indigo-500/30 rounded-xl p-5">
-        <div className="flex items-start gap-4">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center flex-shrink-0">
-            <Gift className="w-6 h-6 text-white" />
-          </div>
-          <div className="flex-1">
-            <h3 className="text-base font-bold text-white mb-1 flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-yellow-400" />
-              推荐使用 GitCC API
-            </h3>
-            <p className="text-xs text-zinc-400 mb-3 leading-relaxed">
-              支持 GPT-5.1、Gemini-3、Veo 3.1、Sora-2 等多种模型，稳定快速，价格优惠。
-              本开源项目由 GitCC API 提供支持。
-            </p>
-            <div className="flex items-center gap-3">
-              <a 
-                href="http://api.gitcc.com" 
-                target="_blank" 
-                rel="noreferrer"
-                className="px-4 py-2 bg-white text-black text-xs font-bold rounded-lg hover:bg-zinc-200 transition-colors inline-flex items-center gap-1.5"
-              >
-                立即购买
-                <ExternalLink className="w-3 h-3" />
-              </a>
-              {/* 使用教程已隐藏 */}
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* 提供商列表 */}
       <div>
         <div className="flex items-center justify-between mb-3">

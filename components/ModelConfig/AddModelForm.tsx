@@ -36,7 +36,7 @@ const AddModelForm: React.FC<AddModelFormProps> = ({ type, onSave, onCancel }) =
   const [description, setDescription] = useState('');
   const [endpoint, setEndpoint] = useState('');
   const [apiKey, setApiKey] = useState('');
-  const [selectedProviderId, setSelectedProviderId] = useState(defaultProvider?.id || 'gitcc');
+  const [selectedProviderId, setSelectedProviderId] = useState(defaultProvider?.id || 'agnes');
   const [videoMode, setVideoMode] = useState<'sync' | 'async' | 'doubao'>('sync');
 
   const handleSave = () => {
@@ -45,7 +45,7 @@ const AddModelForm: React.FC<AddModelFormProps> = ({ type, onSave, onCancel }) =
       return;
     }
 
-    // 仅使用 GitCC API 提供商
+    // 使用选择的提供商
     const providerId = selectedProviderId;
 
     // 根据模型类型设置默认参数
