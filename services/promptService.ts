@@ -3,7 +3,13 @@ import { Character, Scene, Shot } from "../types";
 import { 
   checkApiKey, 
   getApiBase, 
-  getActiveChatModelName 
+  getActiveChatModelName,
+  retryOperation,
+  chatCompletion,
+  cleanJsonString,
+  VISUAL_STYLE_PROMPTS,
+  NEGATIVE_PROMPTS,
+  getActiveChatModel
 } from "./apiBaseService";
 
 export const generateVisualPrompts = async (type: 'character' | 'scene', data: Character | Scene, genre: string, model: string = 'gpt-5.1', visualStyle: string = 'live-action', language: string = '中文'): Promise<{ visualPrompt: string; negativePrompt: string }> => {

@@ -6,8 +6,16 @@ import {
   getActiveChatModelName, 
   SCRIPT_INPUT_MAX_CHARS,
   LONG_FORM_MAX_TOKENS,
-  PARAGRAPHS_CHUNK_MAX_TOKENS 
+  PARAGRAPHS_CHUNK_MAX_TOKENS,
+  retryOperation,
+  cleanJsonString,
+  chatCompletion,
+  chatCompletionStream,
+  VISUAL_STYLE_PROMPTS,
+  NEGATIVE_PROMPTS
 } from "./apiBaseService";
+import { addRenderLogWithTokens } from './renderLogService';
+import { generateVisualPrompts } from './promptService';
 
 /**
  * Agent 1 & 2: Script Structuring & Breakdown（長文本兩階段解析）
@@ -427,23 +435,7 @@ export const generateShotList = async (scriptData: ScriptData, model: string = '
   }));
 };
 
-const VISUAL_STYLE_PROMPTS: { [key: string]: string } = {
-  'live-action': 'photorealistic, cinematic film quality, real human actors, professional cinematography, natural lighting, 8K resolution',
-  'anime': 'Japanese anime style, cel-shaded, vibrant colors, expressive eyes, dynamic poses, Studio Ghibli/Makoto Shinkai quality',
-  '2d-animation': 'classic 2D animation, hand-drawn style, Disney/Pixar quality, smooth lines, expressive characters, painterly backgrounds',
-  '3d-animation': 'high-quality 3D CGI animation, Pixar/DreamWorks style, subsurface scattering, detailed textures, stylized characters',
-  'cyberpunk': 'cyberpunk aesthetic, neon-lit, rain-soaked streets, holographic displays, high-tech low-life, Blade Runner style',
-  'oil-painting': 'oil painting style, visible brushstrokes, rich textures, classical art composition, museum quality fine art',
-};
 
-const NEGATIVE_PROMPTS: { [key: string]: string } = {
-  'live-action': 'cartoon, anime, illustration, painting, drawing, 3d render, cgi, low quality, blurry, grainy, watermark, text, logo, signature, distorted face, bad anatomy, extra limbs, mutated hands, deformed, ugly, disfigured, poorly drawn, amateur',
-  'anime': 'photorealistic, 3d render, western cartoon, ugly, bad anatomy, extra limbs, deformed limbs, blurry, watermark, text, logo, poorly drawn face, mutated hands, extra fingers, missing fingers, bad proportions, grotesque',
-  '2d-animation': 'photorealistic, 3d, low quality, pixelated, blurry, watermark, text, bad anatomy, deformed, ugly, amateur drawing, inconsistent style, rough sketch',
-  '3d-animation': 'photorealistic, 2d, flat, hand-drawn, low poly, bad topology, texture artifacts, z-fighting, clipping, low quality, blurry, watermark, text, bad rigging, unnatural movement',
-  'cyberpunk': 'bright daylight, pastoral, medieval, fantasy, cartoon, low tech, rural, natural, watermark, text, logo, low quality, blurry, amateur',
-  'oil-painting': 'digital art, photorealistic, 3d render, cartoon, anime, low quality, blurry, watermark, text, amateur, poorly painted, muddy colors, overworked canvas',
-};
 
 /**
  * 生成角色或场景的视觉提示词
