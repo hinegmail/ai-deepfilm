@@ -3,6 +3,9 @@
 
 **Sulphur 2（基于 LTX 2.3 架构微调的开源 AI 视频模型）的 GGUF 格式文件无法直接放入本项目中运行，但可以通过“本地启动推理服务 + 本项目 API 对接”的方式间接使用。**
 
+官方下载地址：[huggingface.co/SulphurAI/Sulphur-2-base](https://huggingface.co/SulphurAI/Sulphur-2-base)
+
+**Sulphur 2 蒸馏模型下载:[huggingface.co/vantagewithai/LTX2.3-10Eros-GGUF](https://huggingface.co/vantagewithai/LTX2.3-10Eros-GGUF)**
 
 ### 一、 为什么本项目不能直接运行 GGUF 文件？
 
