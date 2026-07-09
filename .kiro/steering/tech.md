@@ -77,7 +77,7 @@ npm run electron:build:win # 构建Windows安装程序(.exe)
 npm run electron:build:mac # 构建macOS安装程序(.dmg)
 ```
 - 安装程序输出到 `release/` 目录
-- 产品名称：AI 漫剧工场
+- 产品名称：AI 短剧工作室
 - 包含内置HTTP服务器和API代理
 
 ### Docker部署

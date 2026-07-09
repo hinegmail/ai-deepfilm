@@ -97,13 +97,13 @@ docker-compose up -d --build
 docker-compose down
 ```
 
-# AI 漫剧工场
+# AI 短剧工作室
 
 > **AI 一站式短剧/漫剧生成平台**  
 > *Industrial AI Motion Comic & Video Workbench*
 
 
-**AI 漫剧工场** 是一个面向短剧、漫剧、动态漫画与影视分镜创作者的 AI 生产工作台，目标是把故事创意快速转化为可预览、可导出、可继续剪辑的视觉资产与视频片段。
+**AI 短剧工作室** 是一个面向短剧、漫剧、动态漫画与影视分镜创作者的 AI 生产工作台，目标是把故事创意快速转化为可预览、可导出、可继续剪辑的视觉资产与视频片段。
 
 项目采用 **Script-to-Asset-to-Keyframe** 工作流：先完成剧情与分镜，再生成角色/场景资产，随后在 AI工作台中制作关键帧与视频，最后统一预览和导出。
 
@@ -138,7 +138,7 @@ docker-compose down
 
 ## 核心理念：关键帧驱动
 
-传统 Text-to-Video 往往难以稳定控制角色、构图和镜头起止画面。AI 漫剧工场引入动画与影视制作中的关键帧思路：
+传统 Text-to-Video 往往难以稳定控制角色、构图和镜头起止画面。AI 短剧工作室引入动画与影视制作中的关键帧思路：
 
 1. **先画后动**：先生成镜头的起始帧与结束帧。
 2. **插值生成**：通过视频模型在关键帧之间生成运动过渡。
@@ -271,7 +271,7 @@ npm run electron:build:win
 
 - `electron:dev`：先构建前端，再启动 Electron 窗口。
 - `electron:build`：使用 electron-builder 生成桌面安装包。
-- Windows 安装包会以 `AI 漫剧工场` 为产品名输出到 `release/` 目录。
+- Windows 安装包会以 `AI 短剧工作室` 为产品名输出到 `release/` 目录。
 - 桌面端内建本地 HTTP 服务，托管前端并代理 `/api-proxy` 到 GitCC API。
 
 ## 快速开始

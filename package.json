@@ -31,7 +31,7 @@
   },
   "build": {
     "appId": "com.forsearch.ai-manga-studio",
-    "productName": "AI 漫剧工场",
+    "productName": "AI 短剧工作室",
     "directories": {
       "output": "release"
     },
@@ -43,7 +43,9 @@
       "dist/**"
     ],
     "win": {
-      "target": ["nsis"],
+      "target": [
+        "nsis"
+      ],
       "signAndEditExecutable": false
     },
     "nsis": {
@@ -51,7 +53,9 @@
       "allowToChangeInstallationDirectory": true
     },
     "mac": {
-      "target": ["dmg"],
+      "target": [
+        "dmg"
+      ],
       "category": "public.app-category.video"
     }
   }

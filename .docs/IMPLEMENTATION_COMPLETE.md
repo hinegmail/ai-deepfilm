@@ -280,7 +280,7 @@ npm run electron:build:mac
 - [Ollama](https://ollama.ai)
 
 ### 社区资源
-- [AI 漫剧工场 GitHub](https://github.com/yuanzhongqiao/deep-printfilm)
+- [AI 短剧工作室 GitHub](https://github.com/yuanzhongqiao/deep-printfilm)
 - 讨论区和 Issues
 
 ### 相关项目
@@ -420,7 +420,7 @@ npm run electron:build:mac
 
 ---
 
-**项目名称**: AI 漫剧工场 (Print Film)  
+**项目名称**: AI 短剧工作室 (Print Film)  
 **完成日期**: 2026年  
 **版本**: v0.2 (Provider System)  
 **状态**: ✅ 生产就绪  

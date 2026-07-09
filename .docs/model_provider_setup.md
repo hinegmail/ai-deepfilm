@@ -2,7 +2,7 @@
 
 ## 概述
 
-AI 漫剧工场 现在支持多个 OpenAI 兼容格式的 AI 模型提供商，不再仅限于 GitCC API。
+AI 短剧工作室 现在支持多个 OpenAI 兼容格式的 AI 模型提供商，不再仅限于 GitCC API。
 
 ## 支持的提供商
 

@@ -28,7 +28,7 @@ function App() {
   const [isMobile, setIsMobile] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showModelConfig, setShowModelConfig] = useState(false);
-  
+
   const saveTimeoutRef = useRef<any>(null);
   const hideStatusTimeoutRef = useRef<any>(null);
 
@@ -37,10 +37,10 @@ function App() {
       const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 1024;
       setIsMobile(isMobileDevice);
     };
-    
+
     checkMobile();
     window.addEventListener('resize', checkMobile);
-    
+
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
@@ -86,9 +86,9 @@ function App() {
 
   useEffect(() => {
     const handleError = (event: ErrorEvent) => {
-      if (event.error?.name === 'ApiKeyError' || 
-          event.error?.message?.includes('API Key missing') ||
-          event.error?.message?.includes('AntSK API Key')) {
+      if (event.error?.name === 'ApiKeyError' ||
+        event.error?.message?.includes('API Key missing') ||
+        event.error?.message?.includes('AntSK API Key')) {
         console.warn('🔐 检测到 API Key 错误，请配置 API Key...');
         setShowModelConfig(true);
         event.preventDefault();
@@ -97,8 +97,8 @@ function App() {
 
     const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
       if (event.reason?.name === 'ApiKeyError' ||
-          event.reason?.message?.includes('API Key missing') ||
-          event.reason?.message?.includes('AntSK API Key')) {
+        event.reason?.message?.includes('API Key missing') ||
+        event.reason?.message?.includes('AntSK API Key')) {
         console.warn('🔐 检测到 API Key 错误，请配置 API Key...');
         setShowModelConfig(true);
         event.preventDefault();
@@ -128,7 +128,7 @@ function App() {
     } else {
       clearLogCallback();
     }
-    
+
     return () => clearLogCallback();
   }, [project?.id]);
 
@@ -192,7 +192,7 @@ function App() {
 
   const handleExitProject = async () => {
     if (project) {
-        await saveProjectToDB(project);
+      await saveProjectToDB(project);
     }
     setProject(null);
   };
@@ -220,7 +220,7 @@ function App() {
       <div className="h-screen bg-[#050505] flex items-center justify-center p-6">
         <div className="max-w-md text-center space-y-6">
           <img src={LOGO_URL} alt="Logo" className="w-20 h-20 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-white mb-2">AI 漫剧工场</h1>
+          <h1 className="text-2xl font-bold text-white mb-2">AI 短剧工作室</h1>
           <div className="bg-[#0A0A0A] border border-zinc-800 rounded-xl p-8">
             <p className="text-zinc-400 text-base leading-relaxed mb-4">
               为了获得最佳体验，请使用 PC 端浏览器访问。
@@ -241,63 +241,63 @@ function App() {
 
   if (!project) {
     return (
-       <>
-         <Dashboard 
-           onOpenProject={handleOpenProject} 
-           onShowOnboarding={handleShowOnboarding}
-           onShowModelConfig={handleShowModelConfig}
-         />
-         {showOnboarding && (
-           <Onboarding 
-             onComplete={handleOnboardingComplete}
-             onQuickStart={handleOnboardingQuickStart}
-             currentApiKey={apiKey}
-             onSaveApiKey={handleSaveApiKey}
-           />
-         )}
-         <ModelConfigModal
-           isOpen={showModelConfig}
-           onClose={() => setShowModelConfig(false)}
-         />
-       </>
+      <>
+        <Dashboard
+          onOpenProject={handleOpenProject}
+          onShowOnboarding={handleShowOnboarding}
+          onShowModelConfig={handleShowModelConfig}
+        />
+        {showOnboarding && (
+          <Onboarding
+            onComplete={handleOnboardingComplete}
+            onQuickStart={handleOnboardingQuickStart}
+            currentApiKey={apiKey}
+            onSaveApiKey={handleSaveApiKey}
+          />
+        )}
+        <ModelConfigModal
+          isOpen={showModelConfig}
+          onClose={() => setShowModelConfig(false)}
+        />
+      </>
     );
   }
 
   return (
     <div className="flex h-screen bg-[radial-gradient(circle_at_top_left,_rgba(56,189,248,0.16),_transparent_32%),radial-gradient(circle_at_bottom_right,_rgba(168,85,247,0.16),_transparent_34%),linear-gradient(135deg,_#07111f_0%,_#120b1f_48%,_#07130f_100%)] font-sans text-slate-100 selection:bg-cyan-400/25">
-      <Sidebar 
-        currentStage={project.stage} 
-        setStage={setStage} 
-        onExit={handleExitProject} 
+      <Sidebar
+        currentStage={project.stage}
+        setStage={setStage}
+        onExit={handleExitProject}
         projectName={project.title}
         projectId={project.id}
         onShowOnboarding={handleShowOnboarding}
         onShowModelConfig={() => setShowModelConfig(true)}
       />
-      
+
       <main className="ml-72 flex-1 h-screen overflow-hidden relative">
         <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.035)_1px,_transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.035)_1px,_transparent_1px)] bg-[size:48px_48px] opacity-25" />
         {renderStage()}
-        
+
         {showSaveStatus && (
           <div className="absolute top-4 right-6 pointer-events-none flex items-center gap-2 text-xs font-mono text-cyan-100 bg-slate-950/60 border border-cyan-300/20 px-3 py-1.5 rounded-full backdrop-blur-xl z-50 animate-in fade-in slide-in-from-top-2 duration-200 shadow-lg shadow-cyan-500/10">
-             {saveStatus === 'saving' ? (
-               <>
-                 <Save className="w-3 h-3 animate-pulse" />
-                 保存中...
-               </>
-             ) : (
-               <>
-                 <CheckCircle className="w-3 h-3 text-emerald-400" />
-                 已保存
-               </>
-             )}
+            {saveStatus === 'saving' ? (
+              <>
+                <Save className="w-3 h-3 animate-pulse" />
+                保存中...
+              </>
+            ) : (
+              <>
+                <CheckCircle className="w-3 h-3 text-emerald-400" />
+                已保存
+              </>
+            )}
           </div>
         )}
       </main>
 
       {showOnboarding && (
-        <Onboarding 
+        <Onboarding
           onComplete={handleOnboardingComplete}
           onQuickStart={handleOnboardingQuickStart}
           currentApiKey={apiKey}

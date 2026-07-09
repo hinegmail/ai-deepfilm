@@ -2,7 +2,7 @@
 
 ## 概述
 
-AI 漫剧工场 现已实现了**完全可定制的 API 提供商系统**。用户可以：
+AI 短剧工作室 现已实现了**完全可定制的 API 提供商系统**。用户可以：
 
 ✅ 使用内置的 5 个提供商（GitCC、OpenAI、Anthropic、DeepSeek、Ollama）  
 ✅ 添加任何兼容 OpenAI API 格式的自定义提供商  
