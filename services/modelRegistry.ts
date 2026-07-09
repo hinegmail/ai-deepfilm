@@ -459,7 +459,21 @@ export const getApiKeyForModel = (modelId: string): string | undefined => {
     return provider.apiKey;
   }
   
-  // 3. 最后使用全局 API Key
+  // 3. 判断是否为本地/局域网服务，若是则返回占位符 Key 避免报错
+  if (provider?.baseUrl) {
+    const url = provider.baseUrl.toLowerCase();
+    const isLocal = url.includes('localhost') || 
+                    url.includes('127.0.0.1') || 
+                    url.includes('192.168.') || 
+                    url.includes('10.') || 
+                    url.includes('172.16.') || 
+                    url.includes('::1');
+    if (isLocal) {
+      return 'local-bypass-key';
+    }
+  }
+  
+  // 4. 最后使用全局 API Key
   return getGlobalApiKey();
 };
 
