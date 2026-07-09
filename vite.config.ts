@@ -50,6 +50,23 @@ export default defineConfig(({ mode }) => {
         alias: {
           '@': path.resolve(__dirname, '.'),
         }
+      },
+      build: {
+        chunkSizeWarningLimit: 1000,
+        rollupOptions: {
+          output: {
+            manualChunks(id) {
+              if (id.includes('node_modules')) {
+                if (id.includes('lucide-react')) {
+                  return 'lucide';
+                }
+                if (id.includes('react') || id.includes('scheduler')) {
+                  return 'react-vendor';
+                }
+              }
+            }
+          }
+        }
       }
     };
 });

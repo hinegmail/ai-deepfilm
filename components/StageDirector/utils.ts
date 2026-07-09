@@ -1,6 +1,7 @@
 import { Shot, ProjectState, Keyframe } from '../../types';
 import { VISUAL_STYLE_PROMPTS, VIDEO_PROMPT_TEMPLATES } from './constants';
 import { getCameraMovementCompositionGuide } from './cameraMovementGuides';
+import { enhanceKeyframePrompt } from '../../services/geminiService';
 
 export const getRefImagesForShot = (shot: Shot, scriptData: ProjectState['scriptData']): string[] => {
   const referenceImages: string[] = [];
@@ -89,9 +90,7 @@ export const buildKeyframePromptWithAI = async (
     return basicPrompt;
   }
   
-  // 动态导入避免与模型服务形成循环依赖。
   try {
-    const { enhanceKeyframePrompt } = await import('../../services/geminiService');
     const enhanced = await enhanceKeyframePrompt(basicPrompt, visualStyle, cameraMovement, frameType);
     return enhanced;
   } catch (error) {
