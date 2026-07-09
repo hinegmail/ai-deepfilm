@@ -5,7 +5,6 @@ import { ProjectState, AssetLibraryItem, Character, Scene } from '../types';
 import { getAllProjectsMetadata, createNewProjectState, deleteProjectFromDB, getAllAssetLibraryItems, deleteAssetFromLibrary, loadProjectFromDB, saveProjectToDB } from '../services/storageService';
 import { applyLibraryItemToProject } from '../services/assetLibraryService';
 import { useAlert } from './GlobalAlert';
-import kefuCodeImg from '../kefuCode.jpg';
 
 interface Props {
   onOpenProject: (project: ProjectState) => void;
@@ -18,7 +17,6 @@ const Dashboard: React.FC<Props> = ({ onOpenProject, onShowOnboarding, onShowMod
   const [projects, setProjects] = useState<ProjectState[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
-  const [showGroupQr, setShowGroupQr] = useState(false);
   const [libraryItems, setLibraryItems] = useState<AssetLibraryItem[]>([]);
   const [isLibraryLoading, setIsLibraryLoading] = useState(true);
   const [libraryQuery, setLibraryQuery] = useState('');
@@ -187,16 +185,6 @@ const Dashboard: React.FC<Props> = ({ onOpenProject, onShowOnboarding, onShowMod
                   </span>
                 </button>
               )}
-
-              <button
-                onClick={() => setShowGroupQr(true)}
-                className="w-full flex items-center justify-between px-4 py-3 text-[11px] font-medium tracking-widest uppercase border border-white/10 text-slate-400 hover:text-white hover:border-cyan-300/30 hover:bg-white/5 transition-colors rounded-2xl"
-              >
-                <span className="flex items-center gap-2">
-                  <Users className="w-3.5 h-3.5" />
-                  客服咨询
-                </span>
-              </button>
             </nav>
           </div>
 
@@ -335,30 +323,6 @@ const Dashboard: React.FC<Props> = ({ onOpenProject, onShowOnboarding, onShowMod
         </main>
       </div>
 
-      {showGroupQr && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 p-6 backdrop-blur-xl" onClick={() => setShowGroupQr(false)}>
-          <div
-            className="relative w-full max-w-md bg-slate-950/90 border border-cyan-200/15 p-6 md:p-8 rounded-[1.75rem] shadow-2xl shadow-cyan-950/30"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              onClick={() => setShowGroupQr(false)}
-              className="absolute right-4 top-4 p-2 text-slate-500 hover:text-white hover:bg-white/10 transition-colors rounded-xl"
-              title="关闭"
-            >
-              <X className="w-4 h-4" />
-            </button>
-            <div className="space-y-4 text-center">
-              <div className="text-white text-sm font-bold tracking-widest uppercase">客服咨询</div>
-              <div className="text-[10px] text-cyan-100/60 font-mono">扫码添加客服</div>
-              <div className="bg-white p-3 inline-block rounded-2xl">
-                <img src={kefuCodeImg} alt="客服咨询二维码" className="w-64 h-64 object-contain" />
-              </div>
-              <div className="text-[10px] text-slate-500 font-mono">扫码后请说明来意</div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {showLibraryModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 p-6 backdrop-blur-xl" onClick={() => setShowLibraryModal(false)}>
