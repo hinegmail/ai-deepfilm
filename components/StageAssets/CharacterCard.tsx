@@ -232,7 +232,7 @@ const CharacterCard: React.FC<CharacterCardProps> = ({
 
         <button
           onClick={onGenerate}
-          disabled={isGenerating || !character.visualPrompt}
+          disabled={isGenerating}
           className="w-full py-2 bg-gradient-to-r from-cyan-300 to-sky-400 hover:from-cyan-200 hover:to-sky-300 text-slate-950 rounded-xl text-[10px] font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
         >
           {isGenerating ? (
@@ -243,7 +243,7 @@ const CharacterCard: React.FC<CharacterCardProps> = ({
           ) : (
             <>
               <Sparkles className="w-3 h-3" />
-              {character.referenceImage ? '重新生成图片' : '生成角色图片'}
+              {character.visualPrompt ? (character.referenceImage ? '重新生成图片' : '生成角色图片') : '自动生成提示词并生图'}
             </>
           )}
         </button>
