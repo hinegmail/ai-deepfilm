@@ -19,6 +19,19 @@ export const addRenderLog = (log: Omit<RenderLog, 'id' | 'timestamp'>): void => 
     timestamp: Date.now()
   };
 
+  // 异步将日志发送给本地 Express / Vite 服务持久化到 logs 目录
+  if (typeof window !== 'undefined') {
+    fetch('/api/save-log', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(fullLog)
+    }).catch((e) => {
+      // 忽略脱机或报错，确保不影响核心功能
+    });
+  }
+
   if (logCallback) {
     logCallback(fullLog);
   } else {

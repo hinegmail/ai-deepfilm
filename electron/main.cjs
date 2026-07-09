@@ -64,6 +64,29 @@ async function startServer() {
   const distRoot = getDistRoot();
   const app = express();
 
+  // 解析 JSON 请求体
+  app.use(express.json());
+
+  // 日志持久化路由
+  app.post('/api/save-log', (req, res) => {
+    try {
+      const logData = req.body;
+      const fs = require('fs');
+      const path = require('path');
+      const logsDir = path.resolve(__dirname, '../logs');
+      if (!fs.existsSync(logsDir)) {
+        fs.mkdirSync(logsDir, { recursive: true });
+      }
+      const dateStr = new Date().toISOString().slice(0, 10);
+      const logFile = path.join(logsDir, `render-${dateStr}.log`);
+      const timestamp = new Date().toLocaleString('zh-CN', { hour12: false });
+      fs.appendFileSync(logFile, `[${timestamp}] [${logData.type.toUpperCase()}] [${logData.status.toUpperCase()}] ${logData.resourceName} (${logData.duration || 0}ms)${logData.error ? ' Error: ' + logData.error : ''}\n`, 'utf-8');
+      res.json({ success: true });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   app.use(
     '/api-proxy',
     createProxyMiddleware({
