@@ -63,7 +63,7 @@ export const loadModelConfig = (): ModelManagerState => {
         parsed.providers.unshift(DEFAULT_PROVIDER);
       } else {
         parsed.providers = parsed.providers.map(p =>
-          p.id === 'agnes' ? { ...p, baseUrl: DEFAULT_PROVIDER.baseUrl } : p
+          p.id === 'agnes' ? { ...DEFAULT_PROVIDER, ...p } : p
         );
       }
       runtimeState = parsed;
@@ -127,7 +127,6 @@ export const updateProvider = (id: string, updates: Partial<ModelProvider>): boo
   if (state.providers[index].isBuiltIn) {
     delete updates.id;
     delete updates.isBuiltIn;
-    delete updates.baseUrl;
   }
   
   state.providers[index] = { ...state.providers[index], ...updates };

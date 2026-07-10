@@ -72,6 +72,7 @@ const ProviderManager: React.FC<ProviderManagerProps> = ({ onRefresh }) => {
       } else if (editingId) {
         const success = updateProvider(editingId, {
           name: formData.name.trim(),
+          baseUrl: formData.baseUrl.trim(),
           apiKey: formData.apiKey.trim() || undefined,
         });
         if (success) {

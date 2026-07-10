@@ -70,9 +70,13 @@ export const checkProviderHealth = async (
       };
     }
 
-    const apiKey = getApiKeyForModel(testModel.id) || provider.apiKey;
+    const apiKey = getApiKeyForModel(testModel.id) || provider.apiKey || '';
 
-    if (!apiKey) {
+    const isLocalOrOllama = providerId === 'ollama' || 
+                            provider.name?.toLowerCase().includes('ollama') || 
+                            /localhost|127\.0\.0\.1|192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|::1|host\.docker\.internal|\.local/.test(provider.baseUrl || '');
+
+    if (!apiKey && !isLocalOrOllama) {
       return {
         provider: provider.name,
         providerId,
@@ -136,8 +140,12 @@ export const validateModelApiKey = async (
       };
     }
 
-    const apiKey = getApiKeyForModel(modelId);
-    if (!apiKey) {
+    const apiKey = getApiKeyForModel(modelId) || '';
+    const isLocalOrOllama = model.providerId === 'ollama' || 
+                            provider.name?.toLowerCase().includes('ollama') || 
+                            /localhost|127\.0\.0\.1|192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|::1|host\.docker\.internal|\.local/.test(provider.baseUrl || '');
+
+    if (!apiKey && !isLocalOrOllama) {
       return {
         success: false,
         message: 'API Key 未配置',

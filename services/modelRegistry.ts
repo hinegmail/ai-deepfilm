@@ -47,13 +47,13 @@ export const loadRegistry = (): ModelRegistryState => {
         'veo_3_1_i2v_s_fast_fl_portrait',
       ];
       
-      // 合并内置提供商，并强制覆盖内置提供商的 baseUrl/name
+      // 合并内置提供商，并保留用户自定义的 baseUrl/name
       BUILTIN_PROVIDERS.forEach(bp => {
         const idx = parsed.providers.findIndex(p => p.id === bp.id);
         if (idx === -1) {
           parsed.providers.unshift(bp);
         } else {
-          parsed.providers[idx] = { ...parsed.providers[idx], baseUrl: bp.baseUrl, name: bp.name };
+          parsed.providers[idx] = { ...bp, ...parsed.providers[idx] };
         }
       });
 
@@ -221,7 +221,6 @@ export const updateProvider = (id: string, updates: Partial<ModelProvider>): boo
   if (state.providers[index].isBuiltIn) {
     delete updates.id;
     delete updates.isBuiltIn;
-    delete updates.baseUrl;
   }
 
   state.providers[index] = { ...state.providers[index], ...updates };
@@ -459,16 +458,14 @@ export const getApiKeyForModel = (modelId: string): string | undefined => {
     return provider.apiKey;
   }
   
-  // 3. 判断是否为本地/局域网服务，若是则返回占位符 Key 避免报错
-  if (provider?.baseUrl) {
-    const url = provider.baseUrl.toLowerCase();
+  // 3. 判断是否为本地/局域网服务或 Ollama 服务，若是则返回占位符 Key 避免报错
+  if (provider) {
+    const isOllama = provider.id === 'ollama' || provider.id?.startsWith('ollama') || provider.name?.toLowerCase().includes('ollama');
+    const url = (provider.baseUrl || '').toLowerCase();
     const isLocal = url.includes('localhost') || 
                     url.includes('127.0.0.1') || 
-                    url.includes('192.168.') || 
-                    url.includes('10.') || 
-                    url.includes('172.16.') || 
-                    url.includes('::1');
-    if (isLocal) {
+                    /192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|::1|host\.docker\.internal|\.local/.test(url);
+    if (isOllama || isLocal) {
       return 'local-bypass-key';
     }
   }
