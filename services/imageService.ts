@@ -1,9 +1,11 @@
 // Author: forsearch | Updated: 2026-07-09
 import { Character, Scene } from "../types";
-import { 
-  checkApiKey, 
-  getApiBase, 
-  resolveGcsUrl 
+import {
+  checkApiKey,
+  getApiBase,
+  resolveGcsUrl,
+  resolveEndpoint,
+  getActiveModel
 } from "./apiBaseService";
 
 export const generateImage = async (
@@ -20,7 +22,7 @@ export const generateImage = async (
   const apiKey = checkApiKey('image', activeImageModel?.id);
   const apiBase = getApiBase('image', activeImageModel?.id);
   // 使用模型定义中的端点，如果没有则使用默认的图片生成端点
-  const requestEndpoint = activeImageModel?.endpoint || '/images/generations';
+  const requestEndpoint = resolveEndpoint(apiBase, activeImageModel?.endpoint || '/images/generations');
 
   try {
     // If we have reference images, instruct the model to use them for consistency
@@ -434,14 +436,7 @@ const generateVideoAsync = async (
   console.log('📍 API Base URL:', apiBase);
   
   // Step 1: 创建视频任务
-  // URL 构建逻辑：
-  // - 本地开发：apiBase = /api-proxy → /api-proxy/videos (Vite 代理会添加 /v1)
-  // - 生产环境：apiBase = https://apihub.agnes-ai.com/v1 → https://apihub.agnes-ai.com/v1/videos
-  const videoApiUrl = apiBase.endsWith('/v1')
-    ? `${apiBase}/videos`  // 已包含 /v1
-    : apiBase === '/api-proxy'
-    ? `${apiBase}/videos`  // 本地代理（代理会添加 /v1）
-    : `${apiBase}/v1/videos`;  // 其他情况
+  const videoApiUrl = `${apiBase}${resolveEndpoint(apiBase, '/videos')}`;
   
   console.log('🔗 Video API URL:', videoApiUrl);
   console.log('📝 Request Body:', JSON.stringify(requestBody, null, 2));
@@ -484,11 +479,7 @@ const generateVideoAsync = async (
   while (Date.now() - startTime < maxPollingTime) {
     await new Promise(resolve => setTimeout(resolve, pollingInterval));
     
-    const statusUrl = apiBase.endsWith('/v1')
-      ? `${apiBase}/videos/${taskId}`  // 已包含 /v1
-      : apiBase === '/api-proxy'
-      ? `${apiBase}/videos/${taskId}`  // 本地代理
-      : `${apiBase}/v1/videos/${taskId}`;  // 其他情况
+    const statusUrl = `${apiBase}${resolveEndpoint(apiBase, '/videos')}/${taskId}`;
     
     const statusResponse = await fetch(statusUrl, {
       method: 'GET',

@@ -1,5 +1,6 @@
 import { ChatModelDefinition, ChatOptions, ChatModelParams } from '../../types/model';
 import { getApiKeyForModel, getApiBaseUrlForModel, getActiveChatModel } from '../modelRegistry';
+import { resolveEndpoint } from '../apiBaseService';
 
 export class ApiKeyError extends Error {
   constructor(message: string) {
@@ -56,7 +57,7 @@ export const callChatApi = async (
   }
   
   const apiBase = getApiBaseUrlForModel(activeModel.id);
-  const endpoint = activeModel.endpoint || '/v1/chat/completions';
+  const endpoint = resolveEndpoint(apiBase, activeModel.endpoint || '/chat/completions');
   const apiModel = activeModel.apiModel || activeModel.id;
   
   const params: ChatModelParams = {

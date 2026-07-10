@@ -3,6 +3,7 @@ import { getApiKeyForModel, getApiBaseUrlForModel, getActiveVideoModel } from '.
 import { ApiKeyError } from './chatAdapter';
 import { throwFromVideoHttpError, formatModerationBlockedForUser } from '../videoHttpErrors';
 import { resolveSoraVideoDownloadId, extractSoraDirectVideoUrl, fetchVideoUrlAsDataUrl } from '../soraVideoResolve';
+import { resolveEndpoint } from '../apiBaseService';
 
 const retryOperation = async <T>(
   operation: () => Promise<T>,
@@ -112,7 +113,7 @@ const callVeoApi = async (
 
   try {
     const response = await retryOperation(async () => {
-      const res = await fetch(`${apiBase}/v1/chat/completions`, {
+      const res = await fetch(`${apiBase}${resolveEndpoint(apiBase, '/chat/completions')}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -241,7 +242,7 @@ const callSoraApi = async (
     formData.append('input_reference', blob, 'reference.png');
   }
 
-  const createResponse = await fetch(`${apiBase}/v1/videos`, {
+  const createResponse = await fetch(`${apiBase}${resolveEndpoint(apiBase, '/videos')}`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey}`,
@@ -271,7 +272,7 @@ const callSoraApi = async (
   while (Date.now() - startTime < maxPollingTime) {
     await new Promise(resolve => setTimeout(resolve, pollingInterval));
     
-    const statusResponse = await fetch(`${apiBase}/v1/videos/${taskId}`, {
+    const statusResponse = await fetch(`${apiBase}${resolveEndpoint(apiBase, '/videos')}/${taskId}`, {
       method: 'GET',
       headers: {
         'Accept': 'application/json',
@@ -300,7 +301,7 @@ const callSoraApi = async (
       if (videoId && String(videoId).startsWith('task_')) {
         await new Promise((r) => setTimeout(r, 1500));
         try {
-          const refresh = await fetch(`${apiBase}/v1/videos/${taskId}`, {
+          const refresh = await fetch(`${apiBase}${resolveEndpoint(apiBase, '/videos')}/${taskId}`, {
             method: 'GET',
             headers: { Accept: 'application/json', Authorization: `Bearer ${apiKey}` },
           });
@@ -347,7 +348,7 @@ const callSoraApi = async (
       const downloadController = new AbortController();
       const downloadTimeoutId = setTimeout(() => downloadController.abort(), downloadTimeout);
       
-      const downloadResponse = await fetch(`${apiBase}/v1/videos/${videoId}/content`, {
+      const downloadResponse = await fetch(`${apiBase}${resolveEndpoint(apiBase, '/videos')}/${videoId}/content`, {
         method: 'GET',
         headers: {
           'Accept': '*/*',
@@ -366,7 +367,7 @@ const callSoraApi = async (
           attempt < maxDownloadRetries
         ) {
           try {
-            const refresh = await fetch(`${apiBase}/v1/videos/${taskId}`, {
+            const refresh = await fetch(`${apiBase}${resolveEndpoint(apiBase, '/videos')}/${taskId}`, {
               method: 'GET',
               headers: { Accept: 'application/json', Authorization: `Bearer ${apiKey}` },
             });
@@ -425,7 +426,7 @@ const callDoubaoSeedanceApi = async (
   apiKey: string,
   apiBase: string
 ): Promise<string> => {
-  const endpoint = model.endpoint || '/v1/chat/completions';
+  const endpoint = resolveEndpoint(apiBase, model.endpoint || '/chat/completions');
   const apiModel = model.apiModel || model.id;
 
   // Doubao Seedance 兼容接口優先接受遠端圖片 URL。

@@ -8,7 +8,9 @@ import {
   getApiBase, 
   resolveRequestModel, 
   getVeoModelName, 
-  getSoraVideoSize 
+  getSoraVideoSize,
+  resolveModel,
+  resolveEndpoint
 } from "./apiBaseService";
 
 export const generateVideo = async (
@@ -97,7 +99,7 @@ export const generateVideo = async (
 
   try {
     const response = await retryOperation(async () => {
-      const res = await fetch(`${apiBase}/chat/completions`, {
+      const res = await fetch(`${apiBase}${resolveEndpoint(apiBase, '/chat/completions')}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -494,10 +494,20 @@ export const getApiBaseUrlForModel = (modelId: string): string => {
   const provider = model ? getProviderById(model.providerId) : BUILTIN_PROVIDERS[0];
   let baseUrl = (provider?.baseUrl || BUILTIN_PROVIDERS[0].baseUrl).replace(/\/+$/, '');
 
-  // 本地开发时统一通过 /api-proxy 代理，避免 CORS 问题
-  if (isLocalOrigin() && !baseUrl.startsWith('http://localhost')) {
+  const isLocalOrOllama = provider?.id === 'ollama' || 
+                          provider?.name?.toLowerCase().includes('ollama') || 
+                          /localhost|127\.0\.0\.1|192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|::1|host\.docker\.internal|\.local/.test(baseUrl);
+
+  // 本地开发时，非本地/非局域网的 API 统一通过 /api-proxy 代理，避免 CORS 问题
+  if (isLocalOrigin() && !isLocalOrOllama) {
     // 非本地的 API，通过代理访问
     return API_PROXY_PATH;
+  }
+
+  // 本地开发时，host.docker.internal 解析到 LAN IP，可能因防火墙/CORS 不可达
+  // 替换为 localhost，确保浏览器能直连本地服务（Ollama 等）
+  if (isLocalOrigin() && baseUrl.includes('host.docker.internal')) {
+    return baseUrl.replace(/host\.docker\.internal/g, 'localhost');
   }
 
   return baseUrl;

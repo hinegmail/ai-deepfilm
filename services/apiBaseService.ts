@@ -11,7 +11,7 @@ import {
   getActiveChatModel,
 } from './modelRegistry';
 
-export { getActiveChatModel };
+export { getActiveChatModel, getActiveModel };
 
 export class ApiKeyError extends Error {
   constructor(message: string) {
@@ -60,6 +60,26 @@ export const checkApiKey = (type: 'chat' | 'image' | 'video' = 'chat', modelId?:
 export const DEFAULT_API_BASE = 'https://apihub.agnes-ai.com/v1';
 
 export const SCRIPT_INPUT_MAX_CHARS = 120000;
+
+/**
+ * 根据 apiBase 解析正确的端点路径
+ * - apiBase 以 /v1 结尾或为 /api-proxy 时，端点不带 /v1 前缀
+ * - apiBase 不含 /v1 时（如 http://localhost:11434），端点需要加 /v1 前缀
+ */
+export const resolveEndpoint = (apiBase: string, endpoint: string): string => {
+  if (apiBase.endsWith('/v1') || apiBase === '/api-proxy') {
+    // apiBase 已包含 /v1，移除 endpoint 中的 /v1 前缀（如果有）
+    if (endpoint.startsWith('/v1/')) {
+      return endpoint.slice(3);
+    }
+    return endpoint;
+  }
+  // apiBase 不含 /v1，确保 endpoint 带 /v1 前缀
+  if (!endpoint.startsWith('/v1/') && !endpoint.startsWith('v1/')) {
+    return '/v1' + endpoint;
+  }
+  return endpoint;
+};
 export const LONG_FORM_MAX_TOKENS = 32768;
 export const PARAGRAPHS_CHUNK_MAX_TOKENS = 8192;
 
@@ -200,7 +220,8 @@ export const chatCompletion = async (prompt: string, model: string = 'gpt-5.1', 
   try {
     const apiBase = getApiBase('chat', model);
     const resolvedModel = resolveModel('chat', model);
-    const endpoint = resolvedModel?.endpoint || '/chat/completions';
+    const rawEndpoint = resolvedModel?.endpoint || '/chat/completions';
+    const endpoint = resolveEndpoint(apiBase, rawEndpoint);
     const response = await fetch(`${apiBase}${endpoint}`, {
       method: 'POST',
       headers: {
@@ -263,7 +284,8 @@ export const chatCompletionStream = async (
   try {
     const apiBase = getApiBase('chat', model);
     const resolvedModel = resolveModel('chat', model);
-    const endpoint = resolvedModel?.endpoint || '/chat/completions';
+    const rawEndpoint = resolvedModel?.endpoint || '/chat/completions';
+    const endpoint = resolveEndpoint(apiBase, rawEndpoint);
     const response = await fetch(`${apiBase}${endpoint}`, {
       method: 'POST',
       headers: {
@@ -346,7 +368,7 @@ export const chatCompletionStream = async (
 export const verifyApiKey = async (key: string): Promise<{ success: boolean; message: string }> => {
   try {
     const apiBase = getApiBase('chat');
-    const response = await fetch(`${apiBase}/chat/completions`, {
+    const response = await fetch(`${apiBase}${resolveEndpoint(apiBase, '/chat/completions')}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

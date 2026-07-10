@@ -161,7 +161,7 @@ const ProviderManager: React.FC<ProviderManagerProps> = ({ onRefresh }) => {
       {builtInProviders.length > 0 && (
         <div>
           <h3 className="text-xs font-bold text-white mb-3 uppercase tracking-wider">内置提供商</h3>
-          <div className="space-y-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {builtInProviders.map(provider => (
               <div
                 key={provider.id}
@@ -228,7 +228,7 @@ const ProviderManager: React.FC<ProviderManagerProps> = ({ onRefresh }) => {
           </div>
         )}
 
-        <div className="space-y-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {customProviders.map(provider => (
             <div
               key={provider.id}

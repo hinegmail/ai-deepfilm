@@ -1,6 +1,7 @@
 import { ImageModelDefinition, ImageGenerateOptions, AspectRatio } from '../../types/model';
 import { getApiKeyForModel, getApiBaseUrlForModel, getActiveImageModel } from '../modelRegistry';
 import { ApiKeyError } from './chatAdapter';
+import { resolveEndpoint } from '../apiBaseService';
 
 const retryOperation = async <T>(
   operation: () => Promise<T>,
@@ -46,7 +47,7 @@ export const callImageApi = async (
   const apiModel = activeModel.apiModel || activeModel.id;
   
   // 使用模型定义中的端点，如果没有则使用默认的图片生成端点
-  const endpoint = activeModel.endpoint || '/v1/images/generations';
+  const endpoint = resolveEndpoint(apiBase, activeModel.endpoint || '/images/generations');
 
   let finalPrompt = options.prompt;
   if (options.referenceImages && options.referenceImages.length > 0) {

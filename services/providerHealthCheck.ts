@@ -1,10 +1,12 @@
 /**
  * 提供商健康检查和 API Key 验证服务
- * 支持多种提供商和模型类型的测试
+ * - Provider 级健康检查：轻量探测 BASE URL 是否可达，不调用模型推理接口
+ * - 模型级 API Key 验证：调用实际模型端点，验证 API Key 是否有效
  */
 
 import { ModelProvider, ModelType } from '../types/model';
-import { getProviderById, getModels, getApiKeyForModel } from './modelRegistry';
+import { getProviderById, getModels, getApiKeyForModel, getApiBaseUrlForModel, getGlobalApiKey } from './modelRegistry';
+import { resolveEndpoint } from './apiBaseService';
 
 export interface HealthCheckResult {
   provider: string;
@@ -24,9 +26,50 @@ export interface ApiKeyValidationResult {
   timestamp: number;
 }
 
+// ============================================
+// 辅助函数
+// ============================================
+
+/** 是否为本地开发环境（localhost / 127.0.0.1） */
+function isLocalOrigin(): boolean {
+  if (typeof window === 'undefined') return false;
+  const o = window.location.origin;
+  return o.startsWith('http://localhost') || o.startsWith('http://127.0.0.1') ||
+         o.startsWith('https://localhost') || o.startsWith('https://127.0.0.1');
+}
+
+/** 是否为本地 / 局域网 / Ollama 服务（不需要代理） */
+function isLocalProvider(provider: ModelProvider): boolean {
+  const url = (provider.baseUrl || '').toLowerCase();
+  return provider.id === 'ollama' ||
+         provider.name?.toLowerCase().includes('ollama') ||
+         /localhost|127\.0\.0\.1|192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|::1|host\.docker\.internal|\.local/.test(url);
+}
+
+/**
+ * 解析提供商的基础 URL（与 getApiBaseUrlForModel 逻辑一致）
+ * 本地开发时，非本地/非局域网的 API 统一通过 /api-proxy 代理，避免 CORS
+ */
+function resolveProviderBaseUrl(provider: ModelProvider): string {
+  const baseUrl = (provider.baseUrl || '').replace(/\/+$/, '');
+  if (isLocalOrigin() && !isLocalProvider(provider)) {
+    return '/api-proxy';
+  }
+  // 本地开发时，host.docker.internal 替换为 localhost（与 getApiBaseUrlForModel 一致）
+  if (isLocalOrigin() && baseUrl.includes('host.docker.internal')) {
+    return baseUrl.replace(/host\.docker\.internal/g, 'localhost');
+  }
+  return baseUrl;
+}
+
+// ============================================
+// Provider 级健康检查（轻量探测，不调用模型推理）
+// ============================================
+
 /**
  * 对提供商执行健康检查
- * 检测 API 端点是否可访问，API Key 是否有效
+ * 仅探测 BASE URL 是否可达，不调用模型推理接口
+ * 使用 GET /models 等轻量端点，将 401/403/404/405 等视为"服务器可达"
  */
 export const checkProviderHealth = async (
   providerId: string
@@ -45,55 +88,13 @@ export const checkProviderHealth = async (
   }
 
   try {
-    // 获取该提供商的所有模型
-    const models = getModels().filter(m => m.providerId === providerId);
-    
-    if (models.length === 0) {
-      return {
-        provider: provider.name,
-        providerId,
-        status: 'error',
-        message: '该提供商没有配置任何模型',
-        timestamp: startTime,
-      };
-    }
-
-    // 使用首选模型进行测试
-    const testModel = getPreferredTestModel(models, providerId);
-    if (!testModel) {
-      return {
-        provider: provider.name,
-        providerId,
-        status: 'error',
-        message: '无法选择测试模型',
-        timestamp: startTime,
-      };
-    }
-
-    const apiKey = getApiKeyForModel(testModel.id) || provider.apiKey || '';
-
-    const isLocalOrOllama = providerId === 'ollama' || 
-                            provider.name?.toLowerCase().includes('ollama') || 
-                            /localhost|127\.0\.0\.1|192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|::1|host\.docker\.internal|\.local/.test(provider.baseUrl || '');
-
-    if (!apiKey && !isLocalOrOllama) {
-      return {
-        provider: provider.name,
-        providerId,
-        status: 'invalid_key',
-        message: 'API Key 未配置',
-        timestamp: startTime,
-      };
-    }
-
-    // 根据模型类型调用不同的测试端点
-    const result = await testProviderConnection(provider, testModel, apiKey);
+    const result = await probeProviderConnectivity(provider);
     const responseTime = Date.now() - startTime;
 
     return {
       provider: provider.name,
       providerId,
-      status: result.success ? 'healthy' : result.status,
+      status: result.status,
       message: result.message,
       responseTime,
       timestamp: Date.now(),
@@ -112,7 +113,141 @@ export const checkProviderHealth = async (
 };
 
 /**
+ * 将 URL 中的 host.docker.internal 或 LAN IP 替换为 localhost
+ * 用于本地服务（Ollama 等）在 host.docker.internal 不可达时的回退
+ */
+function fallbackToLocalhost(url: string): string | null {
+  if (url.includes('host.docker.internal')) {
+    return url.replace(/host\.docker\.internal/g, 'localhost');
+  }
+  // 匹配 192.168.x.x / 10.x.x.x / 172.16-31.x.x
+  const lanMatch = url.match(/^(https?:\/\/)(192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2[0-9]|3[0-1])\.\d+\.\d+)/);
+  if (lanMatch) {
+    return url.replace(lanMatch[2], 'localhost');
+  }
+  return null;
+}
+
+/**
+ * 轻量探测提供商 BASE URL 是否可达
+ * - Ollama / 本地服务：GET 根路径
+ * - 远程 API：GET /models（标准 OpenAI 兼容端点，不触发推理）
+ * - 任何 HTTP 响应（状态码 < 500）都意味着服务器可达
+ * - 对于本地服务，如果 host.docker.internal / LAN IP 不可达，自动回退到 localhost
+ */
+async function probeProviderConnectivity(
+  provider: ModelProvider
+): Promise<{ status: HealthCheckResult['status']; message: string }> {
+  const baseUrl = resolveProviderBaseUrl(provider);
+  const apiKey = provider.apiKey || getGlobalApiKey() || '';
+
+  const isOllama = provider.id === 'ollama' ||
+                   provider.id?.startsWith('ollama') ||
+                   provider.name?.toLowerCase().includes('ollama');
+
+  // 如果 baseUrl 使用了 host.docker.internal 或 LAN IP，准备 localhost 回退 URL
+  const localhostUrl = fallbackToLocalhost(baseUrl);
+
+  const result = await doProbe(baseUrl, isOllama, apiKey, 8000);
+
+  // 探测成功或返回非网络错误（如认证失败等），直接返回
+  if (result.status !== 'timeout' && result.status !== 'error') {
+    return result;
+  }
+  // 如果是网络错误/超时且有 localhost 回退可用，尝试 localhost
+  if (localhostUrl) {
+    const fallbackResult = await doProbe(localhostUrl, isOllama, apiKey, 8000);
+    if (fallbackResult.status === 'healthy') {
+      return {
+        status: 'healthy',
+        message: `连接成功（通过 localhost 回退）`,
+      };
+    }
+    return fallbackResult;
+  }
+
+  return result;
+}
+
+/**
+ * 执行单次轻量探测
+ */
+async function doProbe(
+  baseUrl: string,
+  isOllama: boolean,
+  apiKey: string,
+  timeoutMs: number
+): Promise<{ status: HealthCheckResult['status']; message: string }> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const headers: Record<string, string> = {};
+    if (apiKey && !isOllama) {
+      headers['Authorization'] = `Bearer ${apiKey}`;
+    }
+
+    // Ollama / 本地服务：GET 根路径（Ollama 返回 "Ollama is running"）
+    if (isOllama) {
+      const testUrl = baseUrl.endsWith('/v1') ? baseUrl.slice(0, -3) : baseUrl;
+      const response = await fetch(testUrl, {
+        method: 'GET',
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+      if (response.status < 500) {
+        return { status: 'healthy', message: '连接成功' };
+      }
+      return { status: 'error', message: `服务不可用 (HTTP ${response.status})` };
+    }
+
+    // 远程 API：GET /models（OpenAI 兼容的标准端点，仅列出可用模型，不触发推理）
+    let probeUrl: string;
+    if (baseUrl.endsWith('/v1') || baseUrl === '/api-proxy') {
+      probeUrl = `${baseUrl}/models`;
+    } else {
+      probeUrl = `${baseUrl}/v1/models`;
+    }
+
+    const response = await fetch(probeUrl, {
+      method: 'GET',
+      headers,
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+
+    // 任何 HTTP 响应（状态码 < 500）都意味着服务器可达
+    if (response.status < 500) {
+      return { status: 'healthy', message: '连接成功' };
+    }
+
+    if (response.status === 503) {
+      return { status: 'error', message: `服务不可用 (${response.status}): 服务器可能在维护中` };
+    }
+    return { status: 'error', message: `服务器错误 (HTTP ${response.status})` };
+  } catch (error: any) {
+    clearTimeout(timeout);
+
+    if (error.name === 'AbortError') {
+      return { status: 'timeout', message: `请求超时 (${timeoutMs / 1000}秒): 服务器无响应` };
+    }
+
+    const message = error.message || '网络错误';
+    if (message.includes('fetch') || message.includes('NetworkError') || message.includes('Failed to')) {
+      return { status: 'error', message: '网络错误: 无法连接到 API 服务器' };
+    }
+
+    return { status: 'error', message: `连接错误: ${message}` };
+  }
+}
+
+// ============================================
+// 模型级 API Key 验证（调用实际模型端点）
+// ============================================
+
+/**
  * 验证特定模型的 API Key
+ * 调用实际模型推理端点，验证 API Key 是否有效
  */
 export const validateModelApiKey = async (
   modelId: string
@@ -125,6 +260,7 @@ export const validateModelApiKey = async (
       return {
         success: false,
         message: '模型未找到',
+        provider: '未知',
         timestamp: Date.now(),
       };
     }
@@ -155,7 +291,7 @@ export const validateModelApiKey = async (
       };
     }
 
-    // 测试 API 连接
+    // 测试 API 连接（调用实际模型端点）
     const result = await testApiConnection(provider, model, apiKey);
     const responseTime = Date.now() - startTime;
 
@@ -171,75 +307,16 @@ export const validateModelApiKey = async (
     return {
       success: false,
       message: error.message || '验证失败',
+      provider: '未知',
       timestamp: Date.now(),
     };
   }
 };
 
 /**
- * 测试与提供商的连接
+ * 测试与模型端点的实际连接（用于模型级 API Key 验证）
+ * 会调用 /chat/completions、/images/generations 或 /videos 等推理端点
  */
-async function testProviderConnection(
-  provider: ModelProvider,
-  model: any,
-  apiKey: string
-): Promise<{ success: boolean; status: HealthCheckResult['status']; message: string }> {
-  try {
-    const result = await testApiConnection(provider, model, apiKey);
-    if (result.success) {
-      return { success: true, status: 'healthy', message: '连接成功' };
-    } else {
-      return {
-        success: false,
-        status: result.message.includes('401') || result.message.includes('无效') ? 'invalid_key' : 'error',
-        message: result.message,
-      };
-    }
-  } catch (error: any) {
-    const message = error.message || '连接失败';
-    const status = message.includes('timeout') ? 'timeout' : 'error';
-    return { success: false, status: status as any, message };
-  }
-}
-
-/**
- * 获取用于测试的首选模型
- * 优先选择自定义模型，如果没有自定义模型则选择内置模型
- */
-function getPreferredTestModel(
-  models: any[],
-  providerId: string
-): any | undefined {
-  if (!models.length) return undefined;
-
-  // 首先查找非内置的自定义模型（用户自己添加的）
-  const customModels = models.filter(m => !m.isBuiltIn);
-  if (customModels.length > 0) {
-    // 返回第一个自定义模型
-    return customModels[0];
-  }
-
-  // 如果没有自定义模型，按提供商优先级选择内置测试模型
-  const priorities: Record<string, string[]> = {
-    'openai': ['openai:gpt-4o', 'openai:gpt-3.5-turbo'],
-    'anthropic': ['anthropic:claude-sonnet', 'anthropic:claude-opus'],
-    'deepseek': ['deepseek:deepseek-chat'],
-    'agnes': ['agnes:agnes-2.0-flash', 'agnes:agnes-image-2.1-flash', 'agnes:agnes-video-v2.0'],
-    'ollama': ['ollama:llama2', 'ollama:mistral'],
-  };
-
-  const preferredIds = priorities[providerId];
-  if (preferredIds) {
-    for (const id of preferredIds) {
-      const model = models.find(m => m.id === id);
-      if (model) return model;
-    }
-  }
-
-  // 如果没找到任何首选模型，返回第一个内置模型
-  return models[0];
-}
-
 async function testApiConnection(
   provider: ModelProvider,
   model: any,
@@ -252,19 +329,74 @@ async function testApiConnection(
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    let baseUrl = provider.baseUrl.replace(/\/+$/, '');
-    let endpoint = model.endpoint || getDefaultEndpoint(model.type);
+    // 使用与实际 API 调用相同的 URL 解析逻辑
+    // 本地开发时通过 /api-proxy 代理（避免 CORS），生产环境直连
+    let baseUrl = getApiBaseUrlForModel(model.id).replace(/\/+$/, '');
 
-    // 如果 baseUrl 已经以 /v1 结尾，endpoint 就不要再包含 /v1
-    if (baseUrl.endsWith('/v1')) {
-      // 移除 endpoint 开头的 /v1（如果有的话）
-      if (endpoint.startsWith('/v1/')) {
-        endpoint = endpoint.slice(4); // 移除 "/v1"
-        endpoint = '/' + endpoint;
-      } else if (endpoint.startsWith('v1/')) {
-        endpoint = '/' + endpoint.slice(3); // 移除 "v1"
+    // Ollama 模型验证：GET /v1/models 获取已安装模型列表，检查目标模型是否存在
+    const isOllama = provider.id === 'ollama' || provider.id?.startsWith('ollama') || provider.name?.toLowerCase().includes('ollama');
+    if (isOllama) {
+      const targetModel = (model.apiModel || model.id).toLowerCase();
+      // 尝试原始 URL，如果超时/网络错误则回退到 localhost
+      const urls = [baseUrl];
+      const localhostUrl = fallbackToLocalhost(baseUrl);
+      if (localhostUrl) urls.push(localhostUrl);
+
+      for (let i = 0; i < urls.length; i++) {
+        const tryUrl = urls[i].endsWith('/v1') ? `${urls[i]}/models` : `${urls[i]}/v1/models`;
+        const probeController = new AbortController();
+        const probeTimeout = setTimeout(() => probeController.abort(), timeoutMs);
+        try {
+          const response = await fetch(tryUrl, {
+            method: 'GET',
+            signal: probeController.signal,
+          });
+          clearTimeout(probeTimeout);
+
+          if (response.status >= 500) {
+            // 服务器错误，如果不是最后一个 URL，继续尝试回退
+            if (i < urls.length - 1) continue;
+            return { success: false, message: `服务不可用 (HTTP ${response.status})` };
+          }
+
+          // 服务器可达，检查模型是否已安装
+          const data = await response.json();
+          const installedModels: string[] = (data.data || []).map((m: any) =>
+            (m.id || m.name || '').toLowerCase()
+          );
+
+          if (installedModels.includes(targetModel)) {
+            return {
+              success: true,
+              message: i > 0 ? '连接成功（通过 localhost 回退）' : '连接成功',
+            };
+          }
+
+          // 模型未安装
+          const available = installedModels.slice(0, 5).join(', ');
+          return {
+            success: false,
+            message: `模型未安装: ${model.apiModel || model.id}${available ? `（可用: ${available}）` : ''}`,
+          };
+        } catch (e: any) {
+          clearTimeout(probeTimeout);
+          if (e.name === 'AbortError') {
+            // 超时，如果有回退 URL 则继续尝试
+            if (i < urls.length - 1) continue;
+            return { success: false, message: `请求超时 (${timeoutMs / 1000}秒)` };
+          }
+          // 网络错误，如果有回退 URL 则继续尝试
+          if (i < urls.length - 1) continue;
+          const msg = e.message || '网络错误';
+          if (msg.includes('fetch') || msg.includes('NetworkError') || msg.includes('Failed to')) {
+            return { success: false, message: '网络错误: 无法连接到 API 服务器' };
+          }
+          return { success: false, message: `连接错误: ${msg}` };
+        }
       }
     }
+
+    let endpoint = resolveEndpoint(baseUrl, model.endpoint || getDefaultEndpoint(model.type));
 
     const apiModel = model.apiModel || model.id;
 
@@ -388,6 +520,10 @@ function getDefaultEndpoint(modelType: ModelType): string {
       return '/chat/completions';
   }
 }
+
+// ============================================
+// 批量检查与摘要
+// ============================================
 
 /**
  * 批量检查所有提供商的健康状态
